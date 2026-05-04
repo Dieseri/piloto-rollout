@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hunit — Piloto Rollout | Candidatos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#161820; --surface2:#1e2028;
+    --border:#2a2d38; --border2:#343748;
+    --text:#e8eaf2; --text2:#9097b8; --text3:#5a6080;
+    --accent:#4f6ef7; --accent2:#7c3aed;
+    --green:#22c55e; --yellow:#eab308; --red:#ef4444; --orange:#f97316; --teal:#14b8a6;
+    --plus-color:#a855f7; --lite-color:#3b82f6;
+    --hits-color:#f97316; --desb-color:#eab308; --nopms-color:#9ca3af;
+    --outros-color:#14b8a6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  .header {
+    background:linear-gradient(135deg,#0d0f14 0%,#161230 50%,#0d0f14 100%);
+    border-bottom:1px solid var(--border);
+    padding:24px 36px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100; backdrop-filter:blur(12px);
+    flex-wrap:wrap; gap:14px;
+  }
+  .header-left { display:flex; align-items:center; gap:14px; }
+  .logo-badge {
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:white; font-family:'DM Mono',monospace; font-size:13px; font-weight:500;
+    padding:6px 14px; border-radius:6px; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  .header h1 { font-size:18px; font-weight:600; }
+  .header-meta { font-size:12px; color:var(--text3); font-family:'DM Mono',monospace; display:flex; align-items:center; gap:10px; }
+
+  .me-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'DM Sans',sans-serif; font-size:12px;
+    background:var(--surface2); color:var(--text2);
+    padding:5px 11px; border-radius:6px; cursor:pointer;
+    border:1px solid var(--border2);
+  }
+  .me-badge:hover { color:var(--text); border-color:var(--accent); }
+  .me-badge .me-dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
+
+  .conn-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; padding:4px 10px; border-radius:20px;
+    font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;
+  }
+  .conn-pill.online { background:rgba(34,197,94,0.12); color:var(--green); border:1px solid rgba(34,197,94,0.3); }
+  .conn-pill.offline { background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.3); }
+  .conn-pill.connecting { background:rgba(234,179,8,0.1); color:var(--yellow); border:1px solid rgba(234,179,8,0.3); }
+  .conn-pill .conn-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+
+  .main { max-width:1500px; margin:0 auto; padding:30px 36px; }
+
+  /* === SETUP BANNER (visible only when not configured) === */
+  .setup-banner {
+    background:linear-gradient(135deg,rgba(234,179,8,0.1),rgba(249,115,22,0.06));
+    border:1px solid rgba(234,179,8,0.4);
+    border-radius:12px; padding:18px 22px; margin-bottom:24px;
+    color:var(--text);
+  }
+  .setup-banner h3 { font-size:14px; margin-bottom:6px; color:var(--yellow); }
+  .setup-banner p { font-size:13px; color:var(--text2); line-height:1.6; }
+  .setup-banner code {
+    background:var(--bg); padding:2px 6px; border-radius:4px;
+    font-family:'DM Mono',monospace; font-size:12px; color:var(--accent);
+  }
+
+  /* SUMMARY */
+  .summary-row { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .stat-card {
+    flex:1 1 0; min-width:130px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:14px 14px; text-align:center;
+  }
+  .stat-card .num { font-size:24px; font-weight:700; font-family:'DM Mono',monospace; display:block; margin-bottom:3px; }
+  .stat-card .label { font-size:10.5px; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; }
+  .stat-card.total .num { color:var(--text); }
+  .stat-card.apto .num { color:var(--green); }
+  .stat-card.naoapto .num { color:var(--red); }
+  .stat-card.pendente .num { color:var(--text2); }
+
+  .group-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:24px; }
+  .group-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:9px; padding:11px 10px; text-align:center;
+    cursor:pointer; transition:all 0.2s;
+  }
+  .group-card:hover { background:var(--surface2); border-color:var(--border2); }
+  .group-card.active { background:var(--surface2); }
+  .group-card .gnum { font-size:20px; font-weight:700; font-family:'DM Mono',monospace; display:block; }
+  .group-card .glabel { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em; line-height:1.3; }
+  .group-card.lite-nopms { border-top:3px solid var(--lite-color); }
+  .group-card.lite-desb { border-top:3px solid var(--desb-color); }
+  .group-card.lite-hits { border-top:3px solid var(--hits-color); }
+  .group-card.plus-nopms { border-top:3px solid var(--plus-color); }
+  .group-card.plus-desb { border-top:3px solid var(--desb-color); }
+  .group-card.plus-hits { border-top:3px solid var(--hits-color); }
+  .group-card.outros { border-top:3px solid var(--outros-color); }
+  .group-card .gnum.lite-nopms { color:var(--lite-color); }
+  .group-card .gnum.lite-desb { color:var(--desb-color); }
+  .group-card .gnum.lite-hits { color:var(--hits-color); }
+  .group-card .gnum.plus-nopms { color:var(--plus-color); }
+  .group-card .gnum.plus-desb { color:var(--desb-color); }
+  .group-card .gnum.plus-hits { color:var(--hits-color); }
+  .group-card .gnum.outros { color:var(--outros-color); }
+
+  .tabs-wrapper {
+    display:flex; gap:4px; margin-bottom:24px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:5px; flex-wrap:wrap;
+  }
+  .tab-btn {
+    font-family:'DM Sans',sans-serif; font-size:12.5px; font-weight:500;
+    padding:8px 14px; border:none; border-radius:7px; cursor:pointer;
+    background:transparent; color:var(--text2); transition:all 0.2s;
+    display:flex; align-items:center; gap:7px;
+  }
+  .tab-btn .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .tab-btn:hover { color:var(--text); background:var(--surface2); }
+  .tab-btn.active { background:var(--surface2); color:var(--text); border:1px solid var(--border2); }
+  .tab-btn .count {
+    font-family:'DM Mono',monospace; font-size:10.5px;
+    background:var(--bg); padding:2px 6px; border-radius:4px; color:var(--text3);
+  }
+  .tab-btn.active .count { color:var(--text2); }
+
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
+
+  .section {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; margin-bottom:24px; overflow:hidden;
+  }
+  .section-header {
+    padding:18px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    flex-wrap:wrap;
+  }
+  .section-header-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .section-pill {
+    font-size:11px; font-weight:600; padding:4px 10px; border-radius:20px;
+    font-family:'DM Mono',monospace; letter-spacing:0.04em; text-transform:uppercase;
+  }
+  .pill-lite { background:rgba(59,130,246,0.15); color:var(--lite-color); border:1px solid rgba(59,130,246,0.3); }
+  .pill-plus { background:rgba(168,85,247,0.15); color:var(--plus-color); border:1px solid rgba(168,85,247,0.3); }
+  .pill-hits { background:rgba(249,115,22,0.15); color:var(--hits-color); border:1px solid rgba(249,115,22,0.3); }
+  .pill-desb { background:rgba(234,179,8,0.15); color:var(--desb-color); border:1px solid rgba(234,179,8,0.3); }
+  .pill-nopms { background:rgba(156,163,175,0.12); color:#9ca3af; border:1px solid rgba(156,163,175,0.25); }
+  .pill-outros { background:rgba(20,184,166,0.15); color:var(--outros-color); border:1px solid rgba(20,184,166,0.3); }
+  .pill-amp { color:var(--text3); font-weight:400; padding:4px 4px; }
+
+  .section-title { font-size:15px; font-weight:600; }
+  .section-desc { font-size:12.5px; color:var(--text2); margin-top:2px; }
+  .section-count { font-family:'DM Mono',monospace; font-size:13px; color:var(--text3); }
+
+  .context-box {
+    margin:14px 24px; padding:13px 16px; border-radius:8px;
+    font-size:12.5px; line-height:1.7; color:var(--text2); border-left:3px solid;
+  }
+  .context-box strong { color:var(--text); }
+  .context-box.lite-nopms { background:rgba(59,130,246,0.05); border-color:var(--lite-color); }
+  .context-box.lite-desb  { background:rgba(234,179,8,0.05);  border-color:var(--desb-color); }
+  .context-box.lite-hits  { background:rgba(249,115,22,0.05); border-color:var(--hits-color); }
+  .context-box.plus-nopms { background:rgba(168,85,247,0.05); border-color:var(--plus-color); }
+  .context-box.plus-desb  { background:rgba(234,179,8,0.05);  border-color:var(--desb-color); }
+  .context-box.plus-hits  { background:rgba(249,115,22,0.05); border-color:var(--hits-color); }
+  .context-box.outros     { background:rgba(20,184,166,0.05); border-color:var(--outros-color); }
+  .context-box.geral      { background:rgba(79,110,247,0.05); border-color:var(--accent); }
+
+  .export-bar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 24px; border-bottom:1px solid var(--border); gap:12px; flex-wrap:wrap;
+  }
+  .filter-group { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .search-input, .status-filter {
+    font-family:'DM Sans',sans-serif; font-size:12.5px;
+    background:var(--bg); border:1px solid var(--border2); color:var(--text);
+    padding:7px 11px; border-radius:7px; outline:none; transition:border-color 0.2s;
+  }
+  .search-input { width:220px; }
+  .search-input:focus, .status-filter:focus { border-color:var(--accent); }
+  .search-input::placeholder { color:var(--text3); }
+
+  .btn-export {
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500;
+    padding:7px 14px; border-radius:7px; border:1px solid var(--border2); cursor:pointer;
+    background:var(--surface2); color:var(--text2); transition:all 0.2s;
+    display:flex; align-items:center; gap:6px;
+  }
+  .btn-export:hover { background:var(--border); color:var(--text); }
+  .btn-export.csv { border-color:rgba(34,197,94,0.4); color:var(--green); }
+  .btn-export.csv:hover { background:rgba(34,197,94,0.1); }
+  .btn-export.xlsx { border-color:rgba(79,110,247,0.4); color:var(--accent); }
+  .btn-export.xlsx:hover { background:rgba(79,110,247,0.1); }
+
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th {
+    padding:11px 14px; text-align:left; font-size:10.5px; font-weight:600;
+    color:var(--text3); text-transform:uppercase; letter-spacing:0.07em;
+    border-bottom:1px solid var(--border); white-space:nowrap;
+    background:var(--surface); position:sticky; top:0;
+  }
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--surface2); }
+  tbody tr.row-apto { background:rgba(34,197,94,0.04); }
+  tbody tr.row-naoapto { background:rgba(239,68,68,0.04); opacity:0.75; }
+  tbody tr.row-flash { animation: flash 1s ease-out; }
+  @keyframes flash {
+    0% { background:rgba(79,110,247,0.25); }
+    100% { background:transparent; }
+  }
+  td { padding:9px 12px; vertical-align:middle; }
+
+  .hotel-name { font-weight:500; color:var(--text); }
+  .hotel-group { font-size:11px; color:var(--text3); margin-top:2px; }
+  .id-mono { font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); }
+
+  .badge {
+    display:inline-block; font-size:10.5px; font-weight:600;
+    padding:3px 8px; border-radius:4px; font-family:'DM Mono',monospace;
+    text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .badge-sim { background:rgba(34,197,94,0.12); color:var(--green); border:1px solid rgba(34,197,94,0.25); }
+  .badge-nao { background:rgba(239,68,68,0.1); color:#f87171; border:1px solid rgba(239,68,68,0.2); }
+
+  .pms-tag {
+    font-family:'DM Mono',monospace; font-size:10.5px; font-weight:600;
+    padding:3px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .pms-hits { background:rgba(249,115,22,0.12); color:var(--hits-color); }
+  .pms-desb { background:rgba(234,179,8,0.12); color:var(--desb-color); }
+  .pms-null { background:rgba(156,163,175,0.1); color:#9ca3af; }
+  .pms-app  { background:rgba(20,184,166,0.12); color:var(--outros-color); }
+
+  .reservas-num { font-family:'DM Mono',monospace; font-size:12px; color:var(--text2); }
+  .reservas-null { color:var(--text3); font-size:11px; }
+
+  .status-select {
+    font-family:'DM Sans',sans-serif; font-size:11.5px; font-weight:600;
+    padding:5px 8px; border-radius:6px; outline:none; cursor:pointer;
+    border:1px solid var(--border2); background:var(--bg); color:var(--text2);
+    min-width:110px; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .status-select.s-apto { background:rgba(34,197,94,0.12); color:var(--green); border-color:rgba(34,197,94,0.4); }
+  .status-select.s-naoapto { background:rgba(239,68,68,0.1); color:#f87171; border-color:rgba(239,68,68,0.35); }
+  .status-select.s-pendente { background:var(--bg); color:var(--text3); }
+
+  .comment-cell { position:relative; }
+  .comment-input {
+    font-family:'DM Sans',sans-serif; font-size:12px;
+    background:var(--bg); border:1px solid var(--border); color:var(--text);
+    padding:6px 10px; border-radius:6px; outline:none;
+    width:100%; min-width:200px; resize:vertical;
+    transition:border-color 0.2s;
+  }
+  .comment-input:focus { border-color:var(--accent); }
+  .comment-input::placeholder { color:var(--text3); font-style:italic; }
+  .updated-meta {
+    font-size:10px; color:var(--text3); margin-top:3px;
+    font-family:'DM Mono',monospace;
+  }
+
+  .empty-row td { text-align:center; padding:32px; color:var(--text3); }
+
+  .footer {
+    text-align:center; padding:24px; color:var(--text3);
+    font-size:12px; border-top:1px solid var(--border); margin-top:40px;
+  }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  /* Modal name prompt */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px);
+    z-index:1000; display:flex; align-items:center; justify-content:center;
+  }
+  .modal {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:14px; padding:28px 30px; max-width:420px; width:90%;
+  }
+  .modal h2 { font-size:17px; margin-bottom:8px; }
+  .modal p { font-size:13px; color:var(--text2); line-height:1.6; margin-bottom:16px; }
+  .modal input {
+    width:100%; padding:11px 14px; border-radius:8px;
+    background:var(--bg); border:1px solid var(--border2); color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:14px; outline:none; margin-bottom:14px;
+  }
+  .modal input:focus { border-color:var(--accent); }
+  .modal-btn {
+    width:100%; padding:11px 14px; border-radius:8px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:white;
+    border:none; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600;
+    cursor:pointer; transition:opacity 0.2s;
+  }
+  .modal-btn:hover { opacity:0.9; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <span class="logo-badge">Hunit</span>
+    <div>
+      <h1>Piloto Rollout — Hotéis Candidatos</h1>
+    </div>
+  </div>
+  <div class="header-meta">
+    <span class="conn-pill connecting" id="conn-status"><span class="conn-dot"></span> Conectando…</span>
+    <span class="me-badge" onclick="changeName()" title="Clique para alterar seu nome">
+      <span class="me-dot"></span><span id="me-name">—</span>
+    </span>
+    <span>Atualizado em <span id="today"></span></span>
+  </div>
+</header>
+
+<main class="main">
+
+  <div id="setup-banner" class="setup-banner" style="display:none">
+    <h3>⚠ Configuração do Supabase pendente</h3>
+    <p>
+      Para ativar o modo colaborativo, edite este arquivo e preencha as constantes
+      <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> (linhas próximas ao topo do <code>&lt;script&gt;</code>).
+      Sem isso, as anotações ficam apenas neste navegador (modo offline).
+    </p>
+  </div>
+
+  <div class="summary-row">
+    <div class="stat-card total"><span class="num" id="total-count">—</span><span class="label">Total de Hotéis</span></div>
+    <div class="stat-card apto"><span class="num" id="apto-count">—</span><span class="label">✓ Aptos</span></div>
+    <div class="stat-card naoapto"><span class="num" id="naoapto-count">—</span><span class="label">✗ Não aptos</span></div>
+    <div class="stat-card pendente"><span class="num" id="pendente-count">—</span><span class="label">— Pendentes</span></div>
+  </div>
+
+  <div class="group-grid">
+    <div class="group-card lite-nopms" onclick="switchTab('lite-nopms')">
+      <span class="gnum lite-nopms" id="g-lite-nopms">—</span>
+      <span class="glabel">Lite<br>sem PMS</span>
+    </div>
+    <div class="group-card lite-desb" onclick="switchTab('lite-desb')">
+      <span class="gnum lite-desb" id="g-lite-desb">—</span>
+      <span class="glabel">Lite<br>+ Desbravador</span>
+    </div>
+    <div class="group-card lite-hits" onclick="switchTab('lite-hits')">
+      <span class="gnum lite-hits" id="g-lite-hits">—</span>
+      <span class="glabel">Lite<br>+ HITS</span>
+    </div>
+    <div class="group-card plus-nopms" onclick="switchTab('plus-nopms')">
+      <span class="gnum plus-nopms" id="g-plus-nopms">—</span>
+      <span class="glabel">Plus<br>sem PMS</span>
+    </div>
+    <div class="group-card plus-desb" onclick="switchTab('plus-desb')">
+      <span class="gnum plus-desb" id="g-plus-desb">—</span>
+      <span class="glabel">Plus<br>+ Desbravador</span>
+    </div>
+    <div class="group-card plus-hits" onclick="switchTab('plus-hits')">
+      <span class="gnum plus-hits" id="g-plus-hits">—</span>
+      <span class="glabel">Plus<br>+ HITS</span>
+    </div>
+    <div class="group-card outros" onclick="switchTab('outros')">
+      <span class="gnum outros" id="g-outros">—</span>
+      <span class="glabel">Outros<br>(AppSistemas)</span>
+    </div>
+  </div>
+
+  <div class="tabs-wrapper">
+    <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">
+      <span class="dot" style="background:#6366f1"></span> Todos <span class="count" id="c-all">0</span>
+    </button>
+    <button class="tab-btn" data-tab="lite-nopms" onclick="switchTab('lite-nopms')">
+      <span class="dot" style="background:var(--lite-color)"></span> Lite • sem PMS <span class="count" id="c-lite-nopms">0</span>
+    </button>
+    <button class="tab-btn" data-tab="lite-desb" onclick="switchTab('lite-desb')">
+      <span class="dot" style="background:var(--desb-color)"></span> Lite • Desbravador <span class="count" id="c-lite-desb">0</span>
+    </button>
+    <button class="tab-btn" data-tab="lite-hits" onclick="switchTab('lite-hits')">
+      <span class="dot" style="background:var(--hits-color)"></span> Lite • HITS <span class="count" id="c-lite-hits">0</span>
+    </button>
+    <button class="tab-btn" data-tab="plus-nopms" onclick="switchTab('plus-nopms')">
+      <span class="dot" style="background:var(--plus-color)"></span> Plus • sem PMS <span class="count" id="c-plus-nopms">0</span>
+    </button>
+    <button class="tab-btn" data-tab="plus-desb" onclick="switchTab('plus-desb')">
+      <span class="dot" style="background:var(--desb-color)"></span> Plus • Desbravador <span class="count" id="c-plus-desb">0</span>
+    </button>
+    <button class="tab-btn" data-tab="plus-hits" onclick="switchTab('plus-hits')">
+      <span class="dot" style="background:var(--hits-color)"></span> Plus • HITS <span class="count" id="c-plus-hits">0</span>
+    </button>
+    <button class="tab-btn" data-tab="outros" onclick="switchTab('outros')">
+      <span class="dot" style="background:var(--outros-color)"></span> Outros <span class="count" id="c-outros">0</span>
+    </button>
+  </div>
+
+  <div id="tab-all" class="tab-pane active">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-title">Todos os Hotéis Candidatos</span>
+        </div>
+        <span class="section-count" id="count-all-label"></span>
+      </div>
+      <div class="context-box geral">
+        Lista <strong>completa</strong> dos 196 hotéis candidatos ao piloto. Use as abas para visualizar grupos compostos por <strong>Modelo + PMS</strong>. As anotações de <strong>status</strong> e <strong>comentário</strong> são <strong>compartilhadas em tempo real</strong> entre todos os usuários — alterações de outros aparecem automaticamente.
+      </div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar hotel ou grupo..." oninput="filterTable('table-all', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-all', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('all')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('all')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-all"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>Modelo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-all"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="tab-lite-nopms" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-lite">Lite</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-nopms">Sem PMS</span>
+          <div>
+            <div class="section-title">Lite • sem PMS</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Lite</strong> + <strong>PMS Sem PMS</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-lite-nopms-label"></span>
+      </div>
+      <div class="context-box lite-nopms">Hotéis <strong>Lite sem PMS</strong> — primeiro lote da migração. Por não dependerem de integração com PMS, são os candidatos de menor risco para o piloto.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-lite-nopms', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-lite-nopms', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('lite-nopms')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('lite-nopms')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-lite-nopms"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-lite-nopms"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-lite-desb" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-lite">Lite</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-desb">Desbravador</span>
+          <div>
+            <div class="section-title">Lite • Desbravador</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Lite</strong> + <strong>PMS Desbravador</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-lite-desb-label"></span>
+      </div>
+      <div class="context-box lite-desb">Hotéis <strong>Lite com Desbravador</strong> — segundo lote. Migração só após validar mudanças no Desbravador para aceitar modificações e cancelamentos.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-lite-desb', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-lite-desb', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('lite-desb')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('lite-desb')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-lite-desb"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-lite-desb"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-lite-hits" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-lite">Lite</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-hits">HITS</span>
+          <div>
+            <div class="section-title">Lite • HITS</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Lite</strong> + <strong>PMS HITS</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-lite-hits-label"></span>
+      </div>
+      <div class="context-box lite-hits">Hotéis <strong>Lite com HITS</strong> (HITS App / HITS Hsystem). Depende de testar a mudança feita por eles para aceitar modificações e cancelamentos.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-lite-hits', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-lite-hits', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('lite-hits')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('lite-hits')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-lite-hits"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-lite-hits"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-plus-nopms" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-plus">Plus</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-nopms">Sem PMS</span>
+          <div>
+            <div class="section-title">Plus • sem PMS</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Plus</strong> + <strong>PMS Sem PMS</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-plus-nopms-label"></span>
+      </div>
+      <div class="context-box plus-nopms">Hotéis <strong>Plus sem PMS</strong> — primeiro lote do segmento Plus. Sem dependência de integração de PMS, ideais para iniciar o rollout do tier Plus.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-plus-nopms', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-plus-nopms', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('plus-nopms')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('plus-nopms')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-plus-nopms"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-plus-nopms"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-plus-desb" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-plus">Plus</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-desb">Desbravador</span>
+          <div>
+            <div class="section-title">Plus • Desbravador</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Plus</strong> + <strong>PMS Desbravador</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-plus-desb-label"></span>
+      </div>
+      <div class="context-box plus-desb">Hotéis <strong>Plus com Desbravador</strong>. Depende da validação das alterações no Desbravador para tratar modificações e cancelamentos.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-plus-desb', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-plus-desb', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('plus-desb')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('plus-desb')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-plus-desb"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-plus-desb"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-plus-hits" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-plus">Plus</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-hits">HITS</span>
+          <div>
+            <div class="section-title">Plus • HITS</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Plus</strong> + <strong>PMS HITS</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-plus-hits-label"></span>
+      </div>
+      <div class="context-box plus-hits">Hotéis <strong>Plus com HITS</strong> (HITS App / HITS Hsystem). Depende de testar a mudança feita por eles para aceitar modificações e cancelamentos.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-plus-hits', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-plus-hits', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('plus-hits')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('plus-hits')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-plus-hits"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-plus-hits"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-outros" class="tab-pane">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <span class="section-pill pill-outros">Outros</span>
+          <span class="section-pill pill-amp">×</span>
+          <span class="section-pill pill-outros">AppSistemas</span>
+          <div>
+            <div class="section-title">Outros — AppSistemas</div>
+            <div class="section-desc">Filtro composto: <strong>Modelo Outros</strong> + <strong>PMS AppSistemas</strong></div>
+          </div>
+        </div>
+        <span class="section-count" id="count-outros-label"></span>
+      </div>
+      <div class="context-box outros">Hotéis com PMS <strong>AppSistemas</strong> — fora dos lotes principais (Sem PMS / Desbravador / HITS). Avaliar caso a caso.</div>
+      <div class="export-bar">
+        <div class="filter-group">
+          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-outros', this.value)" />
+          <select class="status-filter" onchange="filterByStatus('table-outros', this.value)">
+            <option value="">Todos os status</option>
+            <option value="apto">✓ Apto</option>
+            <option value="naoapto">✗ Não apto</option>
+            <option value="pendente">— Pendente</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-export csv" onclick="exportCSV('outros')">⬇ CSV</button>
+          <button class="btn-export xlsx" onclick="exportXLSX('outros')">⬇ XLSX</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="table-outros"><thead><tr>
+          <th>#</th><th>Hotel</th><th>Grupo</th><th>PMS</th>
+          <th>Reservas</th><th>Status</th><th style="min-width:260px">Comentário</th>
+        </tr></thead><tbody id="tbody-outros"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  Hunit • Piloto Rollout — Modo colaborativo (Supabase) · Alterações sincronizam em tempo real
+</footer>
+
+<!-- Name modal -->
+<div id="name-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h2>👋 Identifique-se</h2>
+    <p>Antes de começar, digite seu nome ou apelido. Ele será registrado nas alterações que você fizer (status / comentário) para o time saber quem mexeu no quê. Fica salvo neste navegador.</p>
+    <input id="name-input" type="text" placeholder="Ex: Dieseri" onkeydown="if(event.key==='Enter') saveName()" maxlength="40" />
+    <button class="modal-btn" onclick="saveName()">Continuar</button>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONFIGURAÇÃO DO SUPABASE — preencha após criar o projeto
+// ================================================================
+const SUPABASE_URL = 'https://tljfvabzwydxyarturcc.supabase.co';   // <-- COLE A URL DO PROJETO AQUI
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsamZ2YWJ6d3lkeHlhcnR1cmNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NjkzMzYsImV4cCI6MjA5MzQ0NTMzNn0.ODznR-lVFQbHDh5CdVD0cXt7_hLgPC36RdG36vGU3IY';        // <-- COLE A "anon public" KEY AQUI
+const TABLE_NAME = 'hunit_piloto_anotacoes';
+// ================================================================
+
+const DATA = [{"Tb Property ID": 45, "Company Name": "HOTEL CASTELINHO 38", "Ho ID": "642763713b420fdbb6c463ab", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3231, "TotalReservas": 209}, {"Tb Property ID": 52, "Company Name": "BELLE ARTI POUSADA", "Ho ID": "5e4315eeacb694e9a8243abc", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 46, "TotalReservas": 162}, {"Tb Property ID": 98, "Company Name": "POUSADA FAROL DOS BORBAS", "Ho ID": "658202838843cddce0e07e14", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 3650, "TotalReservas": 96}, {"Tb Property ID": 110, "Company Name": "POUSADA AGUAS MARINHAS", "Ho ID": "644c35d03355944e64d7c2ee", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 3233, "TotalReservas": 108}, {"Tb Property ID": 119, "Company Name": "BARRETO APART HOTEL (Rede Barreto Apart-Hotel)", "Ho ID": "62068a83cf25cea6d2370356", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "Rede Barreto Apart-Hotel", "Hunit ID": 2432, "TotalReservas": 159}, {"Tb Property ID": 240, "Company Name": "GREEN PALACE HOTEL", "Ho ID": "5e431603acb694e9a8244ca2", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 2995, "TotalReservas": 8}, {"Tb Property ID": 290, "Company Name": "AERO INN HOTEL", "Ho ID": "65c229890560ae28c2d0b69b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3723, "TotalReservas": 250}, {"Tb Property ID": 309, "Company Name": "RESIDENCIAL BOMBINHAS", "Ho ID": "5e4315f0acb694e9a8243ce3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2741, "TotalReservas": 101}, {"Tb Property ID": 313, "Company Name": "POUSADA BLUE OCEAN", "Ho ID": "62a901e8c87653ba81253bab", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2652, "TotalReservas": 83}, {"Tb Property ID": 522, "Company Name": "POUSADA CHALES CINCO ESTRELAS", "Ho ID": "5e4315f1acb694e9a8243d3a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 1274, "TotalReservas": 44}, {"Tb Property ID": 549, "Company Name": "ESTALAGEM 11 SUÍTES (Grupo Porto Praia)", "Ho ID": "61c395f4840c18c2784360ca", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "Grupo Porto Praia", "Hunit ID": 2378, "TotalReservas": 139}, {"Tb Property ID": 557, "Company Name": "MANGUE SECO ANGRA", "Ho ID": "5f4e5893acb6943a28a1028d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1632, "TotalReservas": 144}, {"Tb Property ID": 723, "Company Name": "RESIDENCIAL COSTA MARFIM", "Ho ID": "5e4315f0acb694e9a8243c4c", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2740, "TotalReservas": 17}, {"Tb Property ID": 797, "Company Name": "POUSADA ESTALAGEM DO PORTO (Grupo Porto Praia)", "Ho ID": "61c3936f840c18c2784360b5", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "Grupo Porto Praia", "Hunit ID": 2391, "TotalReservas": 221}, {"Tb Property ID": 802, "Company Name": "POUSADA RAIO DE SOL (JAGUARÃO)", "Ho ID": "5e431604acb694e9a8244d05", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 838, "TotalReservas": 445}, {"Tb Property ID": 814, "Company Name": "IPE ROSA HOTEL", "Ho ID": "63ab0f310d163d02c6871299", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3285, "TotalReservas": 39}, {"Tb Property ID": 848, "Company Name": "Camboa Capela Hotel", "Ho ID": "6615c2b557752db2f908b312", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3184, "TotalReservas": 232}, {"Tb Property ID": 898, "Company Name": "ZANI APART HOTEL", "Ho ID": "633ae11ff753f7684fd0c6fa", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2909, "TotalReservas": 6}, {"Tb Property ID": 943, "Company Name": "Chalés Mirante Monte Verde", "Ho ID": "661e89aa13367dce317969fe", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 3830, "TotalReservas": 187}, {"Tb Property ID": 989, "Company Name": "HOTEL CRUZ", "Ho ID": "6518adc8153ea20edc1328cd", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3531, "TotalReservas": null}, {"Tb Property ID": 998, "Company Name": "VILLA VINICOLLA", "Ho ID": "6230b99f625bcf5d61600728", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 2476, "TotalReservas": 40}, {"Tb Property ID": 1026, "Company Name": "POUSADA PORTO PRAIA (Grupo Porto Praia)", "Ho ID": "61c3951f840c18c2784360be", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Grupo Porto Praia", "Hunit ID": 2377, "TotalReservas": 317}, {"Tb Property ID": 1117, "Company Name": "SANTA ALDEIA HOTEL", "Ho ID": "62a22353f444ab9772580cd2", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2845, "TotalReservas": 34}, {"Tb Property ID": 1124, "Company Name": "COESA HOTEL (Rede Mariano Hotéis)", "Ho ID": "62be0e8a386131f3a455a6b0", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2689, "TotalReservas": 69}, {"Tb Property ID": 1141, "Company Name": "AURORA E VALE", "Ho ID": "654a7ba14f04e7d7792c10e8", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 3569, "TotalReservas": 40}, {"Tb Property ID": 1172, "Company Name": "CORSARIO HOTEL", "Ho ID": "6373b1f7d21fa7224e7da8bc", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3000, "TotalReservas": null}, {"Tb Property ID": 1265, "Company Name": "VILLA NOMAD HOTEL", "Ho ID": "618fcc7ec71678edeb01d413", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2279, "TotalReservas": 266}, {"Tb Property ID": 1283, "Company Name": "Pousada Dharma", "Ho ID": "6568a156830478fe194da9ea", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 3620, "TotalReservas": 1}, {"Tb Property ID": 1287, "Company Name": "SÍTIO CHALÉ DOS IPÊS", "Ho ID": "6514ac5e7177dbef75a59a0f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 3513, "TotalReservas": 73}, {"Tb Property ID": 1289, "Company Name": "POUSADA ORLA DOS CORAIS (Bruna Bernardes)", "Ho ID": "6334a3208d7e66209f0c5ed6", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Bruna Bernardes", "Hunit ID": 2921, "TotalReservas": 289}, {"Tb Property ID": 1326, "Company Name": "POUSADA FLORENCE", "Ho ID": "5e431602acb694e9a8244bc3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 906, "TotalReservas": 52}, {"Tb Property ID": 1402, "Company Name": "JAGUARY HOTEL SUMARÉ", "Ho ID": "61a90f0b32525d5b0386e4d2", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 2311, "TotalReservas": 156}, {"Tb Property ID": 1404, "Company Name": "POUSADA MESTRE AUGUSTO", "Ho ID": "5e4315f0acb694e9a8243cf1", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1253, "TotalReservas": 50}, {"Tb Property ID": 1428, "Company Name": "SERRAVITA HOTEL", "Ho ID": "61a60074370d27224ddf02c0", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2326, "TotalReservas": 203}, {"Tb Property ID": 1564, "Company Name": "POUSADA ALOHA UBATUBA", "Ho ID": "64a321638c4335f7222dd451", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3389, "TotalReservas": 78}, {"Tb Property ID": 1622, "Company Name": "PM - Casa Lake view Capivarí", "Ho ID": "5f235545acb69424e05256aa", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1337, "TotalReservas": null}, {"Tb Property ID": 1624, "Company Name": "NANNAI RESIDENCE BY LOUI", "Ho ID": "662168e80222645b4d39670b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "BY LOUI", "Hunit ID": 3833, "TotalReservas": 11}, {"Tb Property ID": 1634, "Company Name": "VILA SANTA BARBARA POUSADA", "Ho ID": "62f517edde4a24649d8bbc4a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2770, "TotalReservas": 76}, {"Tb Property ID": 1657, "Company Name": "CASA MARGOT", "Ho ID": "62fd4a3069260a73574834b3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2801, "TotalReservas": null}, {"Tb Property ID": 1674, "Company Name": "FLAT SOL", "Ho ID": "5e431604acb694e9a8244d55", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 824, "TotalReservas": 4}, {"Tb Property ID": 1760, "Company Name": "POUSADA CANTINHO SONHADO", "Ho ID": "5e431605acb694e9a8244d99", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 791, "TotalReservas": 2}, {"Tb Property ID": 1769, "Company Name": "Congregacao Dos Sagrados Coracoes", "Ho ID": "5e43160bacb694e9a8245216", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 553, "TotalReservas": 70}, {"Tb Property ID": 1786, "Company Name": "PM - Casa Blanca Condomínio Pertinho Capivarí", "Ho ID": "5fbeaf35acb69411ec930cf3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1682, "TotalReservas": null}, {"Tb Property ID": 1790, "Company Name": "FLORESTA HOTEL TUCURUVI", "Ho ID": "5e431610acb694e9a8245536", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 377, "TotalReservas": 247}, {"Tb Property ID": 1806, "Company Name": "HOTEL JARDIM (JF Hoteis)", "Ho ID": "623c9b21c02cb5fd3aec0033", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2486, "TotalReservas": 80}, {"Tb Property ID": 1828, "Company Name": "TINY HOUSE", "Ho ID": "609daca0c9240590f2e8d734", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1985, "TotalReservas": null}, {"Tb Property ID": 1851, "Company Name": "POUSADA TOCA DAS ÁGUAS", "Ho ID": "6425ca3b4e382e9836fa8baa", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3199, "TotalReservas": 20}, {"Tb Property ID": 1902, "Company Name": "Vila Budião", "Ho ID": "612d5433b52241e9cb944dae", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2431, "TotalReservas": 10}, {"Tb Property ID": 1929, "Company Name": "HOTEL SUPER ECONOMICO", "Ho ID": "5e431609acb694e9a8245059", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 651, "TotalReservas": 363}, {"Tb Property ID": 1981, "Company Name": "HOTEL NEW POINT", "Ho ID": "5e4315f4acb694e9a824400f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1164, "TotalReservas": 679}, {"Tb Property ID": 2019, "Company Name": "HOTEL LENHEIROS", "Ho ID": "5e4315f7acb694e9a82442dc", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1087, "TotalReservas": 387}, {"Tb Property ID": 2050, "Company Name": "POUSADA TANTOMAR (Grupo Porto Praia)", "Ho ID": "5e431616acb694e9a8245972", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "Grupo Porto Praia", "Hunit ID": 1646, "TotalReservas": 270}, {"Tb Property ID": 2529, "Company Name": "Sitio Mar de Nuvens Chalés e Entretenimento", "Ho ID": "6387c10e99785eefef968734", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 3039, "TotalReservas": 4}, {"Tb Property ID": 2672, "Company Name": "POUSADA VIGIA DAS MARÉS", "Ho ID": "65205b183549b21a26dfdcf4", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 3515, "TotalReservas": 48}, {"Tb Property ID": 2678, "Company Name": "SOPHITA BUSINESS HOTEL", "Ho ID": "630ca8024349c54c2e6ca8f5", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2889, "TotalReservas": 47}, {"Tb Property ID": 2846, "Company Name": "Clareira Cabanas", "Ho ID": "66983cb2476b02005c56c354", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 3962, "TotalReservas": 27}, {"Tb Property ID": 3095, "Company Name": "CHALÉS MAHALO J (Thais)", "Ho ID": "66d30dbfb31716bc41ec6cbd", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "(Thais)", "Hunit ID": 4039, "TotalReservas": 324}, {"Tb Property ID": 4155, "Company Name": "POUSADA DO MINEIRO", "Ho ID": "5e431605acb694e9a8244dd7", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4025, "TotalReservas": 160}, {"Tb Property ID": 4327, "Company Name": "BARRETO APART-HOTEL E CARRO KUBIT (Rede Barreto Apart-Hotel)", "Ho ID": "64de7f440c2e186e6a4118cf", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "Rede Barreto Apart-Hotel", "Hunit ID": 3422, "TotalReservas": 72}, {"Tb Property ID": 4720, "Company Name": "LE FORT MALAKOFF", "Ho ID": "671bb71c533d50e79b7efb0b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4124, "TotalReservas": 28}, {"Tb Property ID": 4835, "Company Name": "POUSADA CANTINHO DA SERRA", "Ho ID": "676068f0d66cb552a94cf6e9", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4088, "TotalReservas": 178}, {"Tb Property ID": 4848, "Company Name": "POUSADA CARIBE BRASILIEIRO", "Ho ID": "676ee65a592da1bf1918a3bc", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4264, "TotalReservas": 335}, {"Tb Property ID": 4856, "Company Name": "Quatre Saisons (Henrique Zampol)", "Ho ID": "677c352cca1b25adaf9c11d6", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "(Henrique Zampol)", "Hunit ID": 4223, "TotalReservas": 18}, {"Tb Property ID": 4891, "Company Name": "POUSADA LAMORE", "Ho ID": "67864b3345518871d8311a66", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4253, "TotalReservas": 1}, {"Tb Property ID": 4942, "Company Name": "Bar do Ricardo", "Ho ID": "6798ffe86219312a43192257", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4269, "TotalReservas": 164}, {"Tb Property ID": 4949, "Company Name": "VALENTIM PALACE HOTEL", "Ho ID": "679c9d4cf76b54a0610f5e1a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4288, "TotalReservas": 21}, {"Tb Property ID": 4968, "Company Name": "Hospedagem / Bristol Flats", "Ho ID": "67a5ead09e189940d53b0997", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4423, "TotalReservas": 346}, {"Tb Property ID": 4981, "Company Name": "ALMA TROPICAL RESORT", "Ho ID": "67ad0559d63a0e4b95de88e8", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4314, "TotalReservas": 73}, {"Tb Property ID": 4991, "Company Name": "KANDHA", "Ho ID": "67b3cb722227ad6f76cf0c13", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4326, "TotalReservas": 20}, {"Tb Property ID": 5092, "Company Name": "VILLA MOUNT", "Ho ID": "67eaf521ea55e4f49eb20cea", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4417, "TotalReservas": null}, {"Tb Property ID": 5106, "Company Name": "HOTEL MILENIO", "Ho ID": "67eec8a45847010587746f55", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4430, "TotalReservas": 137}, {"Tb Property ID": 5143, "Company Name": "ASP HOSPEDARIA", "Ho ID": "68012116df585e2749fc2aab", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4454, "TotalReservas": 30}, {"Tb Property ID": 5165, "Company Name": "VILLA DOMÊNICO (Sandro Carusi)", "Ho ID": "6811245c2c2ee424545f1d73", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "(Sandro Carusi)", "Hunit ID": 4479, "TotalReservas": 28}, {"Tb Property ID": 5265, "Company Name": "QUINTA DOS SAMANIEGO", "Ho ID": "6852f9143b4de43c011f4576", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4568, "TotalReservas": 31}, {"Tb Property ID": 5274, "Company Name": "REI DOS MARES", "Ho ID": "685ac80506018f926d78f746", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4572, "TotalReservas": 111}, {"Tb Property ID": 5279, "Company Name": "POUSADA VISTA PRO MAR ILHABELA", "Ho ID": "685c68ccba7ee2aa72f35bf4", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4575, "TotalReservas": 243}, {"Tb Property ID": 5311, "Company Name": "BENNI HOTEL MARABA", "Ho ID": "687035fc6a67ead66596a825", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4635, "TotalReservas": 105}, {"Tb Property ID": 5313, "Company Name": "BENNI HOTEL RIO VERDE", "Ho ID": "687038c86a67ead66596a84f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4634, "TotalReservas": 284}, {"Tb Property ID": 5361, "Company Name": "VILLAGE CLUB PREMIUM", "Ho ID": "688b982fb7602ddf48072c7d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4647, "TotalReservas": null}, {"Tb Property ID": 5362, "Company Name": "ROSA PARADISE", "Ho ID": "688bc196b7602ddf48072d8a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "Daniele Nogarotto", "Hunit ID": 4675, "TotalReservas": 23}, {"Tb Property ID": 5379, "Company Name": "POUSADA MAIKAI", "Ho ID": "6894dea239747a6b7a315d48", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4673, "TotalReservas": 18}, {"Tb Property ID": 5381, "Company Name": "MAIKAI GARDEN", "Ho ID": "68993e2e98184cfb4114c016", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4672, "TotalReservas": 34}, {"Tb Property ID": 5399, "Company Name": "POUSADA VILA MAR DE PARATY", "Ho ID": "689f471b50172bdfd79b1f80", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "Naihelen Ferreira Barbosa", "Hunit ID": 4690, "TotalReservas": 41}, {"Tb Property ID": 5417, "Company Name": "DELLA ECONOMY HOTEL", "Ho ID": "68ac7963357f4662f7253f60", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4692, "TotalReservas": 192}, {"Tb Property ID": 5427, "Company Name": "CHATEAU DO SOSSEGO", "Ho ID": "68b1b87ec52ef6dfa22cfeda", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4703, "TotalReservas": 9}, {"Tb Property ID": 5454, "Company Name": "SAQUA BEACH HOSTEL", "Ho ID": "68c043bfe04f7ab1284fd0e9", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4727, "TotalReservas": null}, {"Tb Property ID": 5554, "Company Name": "POUSADA MARIA RITA DOS CANYONS", "Ho ID": "68ed235d3205e5a902a8bf79", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4797, "TotalReservas": 36}, {"Tb Property ID": 5564, "Company Name": "POUSADA IRACEMA (Rede Jofisa)", "Ho ID": "68f0f0d88910afd77a040b3a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE JOFISA", "Hunit ID": 4807, "TotalReservas": 508}, {"Tb Property ID": 5587, "Company Name": "POUSADA BARTHOLOMEU", "Ho ID": "68efb58b8910afd77a03ff96", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4799, "TotalReservas": 125}, {"Tb Property ID": 5603, "Company Name": "CASATUA POUSADA", "Ho ID": "68fbfb38dd20c55becddaf11", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 4820, "TotalReservas": 67}, {"Tb Property ID": 5630, "Company Name": "CALLIANDRA SUÍTES", "Ho ID": "690a1e40d271b5d0d6b38007", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4826, "TotalReservas": 19}, {"Tb Property ID": 5657, "Company Name": "HOTEL TREVITA FOZ", "Ho ID": "6914ea0ebf59d48931cff1ec", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4850, "TotalReservas": 977}, {"Tb Property ID": 5667, "Company Name": "POUSADA BOSQUE", "Ho ID": "691b4b08105472f015867aed", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4854, "TotalReservas": 202}, {"Tb Property ID": 5669, "Company Name": "RANCHO DAS ÁGUAS", "Ho ID": "691dd4a36d555ccbbd8d307e", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 4853, "TotalReservas": 6}, {"Tb Property ID": 5677, "Company Name": "HOTEL INDEPENDÊNCIA", "Ho ID": "6920a3e9dd09526ac1941fa1", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4860, "TotalReservas": 1395}, {"Tb Property ID": 5715, "Company Name": "HOTEL CADORI", "Ho ID": "693989851c23abeb7baac6da", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Lite", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4903, "TotalReservas": 31}, {"Tb Property ID": 15, "Company Name": "HOTEL OT", "Ho ID": "5e431607acb694e9a8244f18", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 750, "TotalReservas": 181}, {"Tb Property ID": 28, "Company Name": "WEMBLEY INN", "Ho ID": "5e431609acb694e9a8245072", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 674, "TotalReservas": 190}, {"Tb Property ID": 35, "Company Name": "POUSADA MATA ATLANTICA", "Ho ID": "60c7d9a613391d41ad6fc473", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2034, "TotalReservas": 72}, {"Tb Property ID": 37, "Company Name": "DELCAS HOTEL (Rede Starlis)", "Ho ID": "650b2a8314513e36ccc797a6", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITS", "Group": "Rede Starlis", "Hunit ID": 3501, "TotalReservas": 717}, {"Tb Property ID": 47, "Company Name": "BRISAMAR SUITE HOTEL", "Ho ID": "5e4315feacb694e9a8244836", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 631, "TotalReservas": 466}, {"Tb Property ID": 75, "Company Name": "HOTEL CONFIANCE CENTRO CÍVICO (CONFIANCE)", "Ho ID": "5fc00c43acb6942868b90ea5", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Confiance", "Hunit ID": 2114, "TotalReservas": 703}, {"Tb Property ID": 78, "Company Name": "VILA DO SOL APARTAMENTOS (Rede Costa Esmeralda)", "Ho ID": "5e431615acb694e9a82458e0", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "Rede Costa Esmeralda", "Hunit ID": 170, "TotalReservas": 84}, {"Tb Property ID": 130, "Company Name": "POUSADA CAMBURIZINHO", "Ho ID": "62d58c53fc516472cbff4e56", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Fabiana Serafim", "Hunit ID": 2869, "TotalReservas": 131}, {"Tb Property ID": 168, "Company Name": "UIRAMUTAM PALACE HOTEL", "Ho ID": "5e431608acb694e9a8245030", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 678, "TotalReservas": 277}, {"Tb Property ID": 176, "Company Name": "HD PARK HOTEL", "Ho ID": "63a30e003203bf2a780cc7a3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3077, "TotalReservas": 297}, {"Tb Property ID": 179, "Company Name": "HOTEL RIVIERA RIO PRETO (J J HOTEIS E TURISMO LTDA)", "Ho ID": "5e43160eacb694e9a8245439", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "APPSISTEMAS", "Group": "J J HOTEIS E TURISMO LTDA", "Hunit ID": 1605, "TotalReservas": 339}, {"Tb Property ID": 193, "Company Name": "Via Garden Varginha Hotel", "Ho ID": "658ee6f1f63ba0b164e3554d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3656, "TotalReservas": 789}, {"Tb Property ID": 197, "Company Name": "GOLDEN FOREST POUSADA", "Ho ID": "5e431610acb694e9a8245549", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 408, "TotalReservas": 48}, {"Tb Property ID": 199, "Company Name": "HOTEL APOLLO", "Ho ID": "5e43160cacb694e9a824531b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 510, "TotalReservas": 313}, {"Tb Property ID": 200, "Company Name": "SEIBT PALACE HOTEL (Alex Ribeiro)", "Ho ID": "5e4315ebacb694e9a8243808", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Alex Ribeiro", "Hunit ID": 1396, "TotalReservas": 178}, {"Tb Property ID": 204, "Company Name": "DELMOND HOTEL (Rede Starlis)", "Ho ID": "650b2ae614513e36ccc797c3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITS", "Group": "Rede Starlis", "Hunit ID": 3502, "TotalReservas": 1358}, {"Tb Property ID": 262, "Company Name": "FERRADURA RESORT (Rede Ferradura)", "Ho ID": "628cfc4caf024cfe1fa3828d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "REDE FERRADURA", "Hunit ID": 2763, "TotalReservas": 428}, {"Tb Property ID": 272, "Company Name": "HOTEL ALDEIA DE SAHY", "Ho ID": "5ee7ca5dacb6943bc484fdaf", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1533, "TotalReservas": 152}, {"Tb Property ID": 280, "Company Name": "HOTEL RIVIERA LINS (J J HOTEIS E TURISMO LTDA)", "Ho ID": "5ee8ddbbacb69420dce8e42e", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "APPSISTEMAS", "Group": "J J HOTEIS E TURISMO LTDA", "Hunit ID": 1606, "TotalReservas": 238}, {"Tb Property ID": 293, "Company Name": "POUSADA PEQUENA TIRADENTES", "Ho ID": "63053acb2d58c3fe75e496dd", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2805, "TotalReservas": 296}, {"Tb Property ID": 363, "Company Name": "ESCARPAS RESORT", "Ho ID": "64d2718a16409d68f6466051", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "GRUPO ESCARPAS HOTEIS", "Hunit ID": 3401, "TotalReservas": 435}, {"Tb Property ID": 396, "Company Name": "HOTEL 365 CUIABA (Rede Starlis)", "Ho ID": "647de2b6c92e45b9a791c4b9", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITS", "Group": "Rede Starlis", "Hunit ID": 3323, "TotalReservas": 590}, {"Tb Property ID": 406, "Company Name": "MINAS PLATINUM HOTEL & CONVENTION", "Ho ID": "6128217a9428bb1eda3ad1da", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2145, "TotalReservas": 398}, {"Tb Property ID": 412, "Company Name": "HOTEL RADAR", "Ho ID": "654e6d56d9701ff12f1e97e5", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 3574, "TotalReservas": 133}, {"Tb Property ID": 479, "Company Name": "AJAX HOTÉIS", "Ho ID": "64d69137161fe8ce514e5c66", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3436, "TotalReservas": 264}, {"Tb Property ID": 509, "Company Name": "GRANLAGO HOTEL", "Ho ID": "5e4315f0acb694e9a8243cff", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1330, "TotalReservas": 430}, {"Tb Property ID": 561, "Company Name": "COCONUTS MARESIAS HOTEL", "Ho ID": "5e431612acb694e9a82456c7", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 316, "TotalReservas": 209}, {"Tb Property ID": 604, "Company Name": "VILA DO CENTRO APART HOTEL (Rede Costa Esmeralda)", "Ho ID": "6356c259b879ff12f59259af", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "Rede Costa Esmeralda", "Hunit ID": 3007, "TotalReservas": 131}, {"Tb Property ID": 622, "Company Name": "TRIÂNGULO APART HOTEL", "Ho ID": "5e4315f1acb694e9a8243dca", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1186, "TotalReservas": 1081}, {"Tb Property ID": 672, "Company Name": "FERRADURA PRIVATE (Rede Ferradura)", "Ho ID": "628cfb32af024cfe1fa38285", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "REDE FERRADURA", "Hunit ID": 2764, "TotalReservas": 80}, {"Tb Property ID": 696, "Company Name": "PORTO MINAS - CONVENÇÕES E LAZER", "Ho ID": "5e4315f9acb694e9a82444b5", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 445, "TotalReservas": 653}, {"Tb Property ID": 721, "Company Name": "HOTEIS MAPER - EXECUTIVO (HOTEIS MAPER & MARDAN)", "Ho ID": "649f377b75441349ca1d4040", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Hoteis Maper & Mardan", "Hunit ID": 3345, "TotalReservas": 71}, {"Tb Property ID": 757, "Company Name": "HOTEL PARACATU PLAZA", "Ho ID": "6579bb4c0c40bb5ad85065b8", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3636, "TotalReservas": 336}, {"Tb Property ID": 772, "Company Name": "HOTEL MAPEROURO (HOTEIS MAPER & MARDAN)", "Ho ID": "649f3191011f83320f86c748", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Hoteis Maper & Mardan", "Hunit ID": 3346, "TotalReservas": 57}, {"Tb Property ID": 795, "Company Name": "POUSADA DA CONDESSA", "Ho ID": "5e431609acb694e9a824506b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 639, "TotalReservas": 116}, {"Tb Property ID": 816, "Company Name": "BRISA DO CAITÁ PRAIA HOTEL (Rede Brisa)", "Ho ID": "65d67028967a277e558f2403", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "REDE BRISA", "Hunit ID": 3740, "TotalReservas": 277}, {"Tb Property ID": 873, "Company Name": "HOTEIS MAPER & MARDAN - PARK CARAJAS (HOTEIS MAPER & MARDAN)", "Ho ID": "649f346275441349ca1d400e", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Hoteis Maper & Mardan", "Hunit ID": 3347, "TotalReservas": 25}, {"Tb Property ID": 892, "Company Name": "PLAY HOTEL (i5 Hotel)", "Ho ID": "5e4315efacb694e9a8243c28", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Play Hotel", "Hunit ID": 214, "TotalReservas": 1263}, {"Tb Property ID": 916, "Company Name": "HITS PANTANAL HOTEL", "Ho ID": "6138dfcd184c755d05cc7bd3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2177, "TotalReservas": 1129}, {"Tb Property ID": 923, "Company Name": "NOON VILA MADALENA (Reginaldo Oliveira)", "Ho ID": "653833635e5ab8784e26e101", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITS", "Group": "Reginaldo Oliveira", "Hunit ID": 3552, "TotalReservas": 539}, {"Tb Property ID": 928, "Company Name": "HOTEL BHALLY", "Ho ID": "61c0d2f8c4429ff4e9b94397", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 2337, "TotalReservas": 139}, {"Tb Property ID": 948, "Company Name": "ADVANCED HOTEL & FLATS CUIABÁ", "Ho ID": "60300b48674919c9fddb9377", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1889, "TotalReservas": 1032}, {"Tb Property ID": 975, "Company Name": "HOTEL KENNEDY SLIM (Kennedy)", "Ho ID": "5fb59a07acb69f1d90cc07e9", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "Kennedy", "Hunit ID": 1744, "TotalReservas": 235}, {"Tb Property ID": 1019, "Company Name": "BALNEÁRIO DO LAGO HOTEL", "Ho ID": "5f185e3cacb6941f20658706", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "APPSISTEMAS", "Group": "null", "Hunit ID": 1567, "TotalReservas": 110}, {"Tb Property ID": 1044, "Company Name": "POUSADA VILLA SANTÔ", "Ho ID": "62d58985fc516472cbff4e46", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Fabiana Serafim", "Hunit ID": 2721, "TotalReservas": 178}, {"Tb Property ID": 1077, "Company Name": "HOTEL SERRA GRANDE", "Ho ID": "60899614014bec6c31d31abf", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1973, "TotalReservas": 560}, {"Tb Property ID": 1083, "Company Name": "HOTEL CONFIANCE PRIME BATEL (CONFIANCE)", "Ho ID": "5fc01112acb6942868b90eab", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Confiance", "Hunit ID": 2115, "TotalReservas": 1204}, {"Tb Property ID": 1084, "Company Name": "HOTEL MEGA POLO", "Ho ID": "5e4315fbacb694e9a82445ac", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 84, "TotalReservas": 3202}, {"Tb Property ID": 1087, "Company Name": "LAS HOTEL BOUTIQUE", "Ho ID": "65c624cc474178da8a738469", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3728, "TotalReservas": 130}, {"Tb Property ID": 1150, "Company Name": "SANTA CATARINA PLAZA HOTEL", "Ho ID": "5e431602acb694e9a8244be0", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 923, "TotalReservas": 373}, {"Tb Property ID": 1179, "Company Name": "HOTEL PRATA VILLAGGIO", "Ho ID": "5faef5cfacb6941bd0194163", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 1742, "TotalReservas": 318}, {"Tb Property ID": 1184, "Company Name": "HOTEL KENNEDY (Kennedy)", "Ho ID": "5fb59b72acb69f1d90cc07eb", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "Kennedy", "Hunit ID": 1743, "TotalReservas": 163}, {"Tb Property ID": 1193, "Company Name": "HOTEL ZUNINO", "Ho ID": "5f89f02eacb694313437e8eb", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 1699, "TotalReservas": 139}, {"Tb Property ID": 1230, "Company Name": "Hotel Riviera Araçatuba", "Ho ID": "5f3d6c80acb6940ad846fc1f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1854, "TotalReservas": 664}, {"Tb Property ID": 1274, "Company Name": "HOTEL ELDORADO (Rede Eldorado)", "Ho ID": "60352c7b9d06d7e889a27054", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE ELDORADO", "Hunit ID": 1871, "TotalReservas": 301}, {"Tb Property ID": 1320, "Company Name": "HAMPTON PARK (Reginaldo Oliveira)", "Ho ID": "5e431610acb694e9a8245589", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Reginaldo Oliveira", "Hunit ID": 360, "TotalReservas": 958}, {"Tb Property ID": 1328, "Company Name": "HOTEIS MAPER & MARDAN - BEIRA RIO (HOTEIS MAPER & MARDAN)", "Ho ID": "649f339f75441349ca1d3fff", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "Hoteis Maper & Mardan", "Hunit ID": 3344, "TotalReservas": 74}, {"Tb Property ID": 1384, "Company Name": "Starlis Home Versátil (Rede Starlis)", "Ho ID": "65aea37156364cb1d8c0aa2f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITS", "Group": "Rede Starlis", "Hunit ID": 3687, "TotalReservas": 383}, {"Tb Property ID": 1446, "Company Name": "GUAPINDAIA HOTEL PRACA (EasyHoteis)", "Ho ID": "63f8d33d7f65e5801a701718", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3212, "TotalReservas": 251}, {"Tb Property ID": 1482, "Company Name": "POUSADA ZAMA", "Ho ID": "62d58e4ffc516472cbff4e6a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Fabiana Serafim", "Hunit ID": 3051, "TotalReservas": 132}, {"Tb Property ID": 1518, "Company Name": "FAZENDA HOTEL ITAPUA", "Ho ID": "5e43160aacb694e9a824513f", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 593, "TotalReservas": 226}, {"Tb Property ID": 1522, "Company Name": "DMAX HOTEL (GRUPO ELMIR)", "Ho ID": "5e431616acb694e9a824592d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "GRUPO ELMIR", "Hunit ID": 147, "TotalReservas": 379}, {"Tb Property ID": 1546, "Company Name": "HOTEL CONFIANCE BATEL (CONFIANCE)", "Ho ID": "5fc00a9dacb6942868b90ea3", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "Confiance", "Hunit ID": 2113, "TotalReservas": 1018}, {"Tb Property ID": 1562, "Company Name": "NOVARES HOTEL", "Ho ID": "62bdab762c1deef5e79e3af7", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 2674, "TotalReservas": 771}, {"Tb Property ID": 1565, "Company Name": "MOMAX HOTEL", "Ho ID": "655b5aebf45264ef6d57ec25", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "GRUPO ELMIR", "Hunit ID": 3600, "TotalReservas": 342}, {"Tb Property ID": 1609, "Company Name": "BRISA DO MAR PRAIA HOTEL (Rede Brisa)", "Ho ID": "65d6724c967a277e558f2448", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "REDE BRISA", "Hunit ID": 3741, "TotalReservas": 45}, {"Tb Property ID": 1640, "Company Name": "HOTEL POUSADA OURINHOS", "Ho ID": "5f10cae3acb69438d44d7f44", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 1565, "TotalReservas": 783}, {"Tb Property ID": 1645, "Company Name": "CHAMPAGNAT PRAIA HOTEL", "Ho ID": "5e4315f7acb694e9a82442fd", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 564, "TotalReservas": 465}, {"Tb Property ID": 1729, "Company Name": "POUSADA LUNA ZEN", "Ho ID": "6585d4973d3fc45c632829e8", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "null", "Group": "null", "Hunit ID": 3647, "TotalReservas": 34}, {"Tb Property ID": 1796, "Company Name": "FIRENZE HOTEL", "Ho ID": "6542aeb7330e1d3cedc82a61", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 3564, "TotalReservas": 520}, {"Tb Property ID": 1842, "Company Name": "ESTORIL HOTEL", "Ho ID": "5e431613acb694e9a82457cb", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 247, "TotalReservas": 306}, {"Tb Property ID": 1848, "Company Name": "BARRA DO PIUVA PORTO HOTEL (Hotel B2C)", "Ho ID": "5e43160cacb694e9a82452df", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 516, "TotalReservas": 634}, {"Tb Property ID": 1854, "Company Name": "MARSALA HOTEL", "Ho ID": "5e431612acb694e9a824571d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 314, "TotalReservas": 208}, {"Tb Property ID": 1912, "Company Name": "HOTEL GLORIA CAXAMBU", "Ho ID": "5e431612acb694e9a82456ca", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 273, "TotalReservas": 63}, {"Tb Property ID": 1922, "Company Name": "VILA DOM BOSCO HOTEL", "Ho ID": "5e4315eaacb694e9a82436df", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 1442, "TotalReservas": 626}, {"Tb Property ID": 1947, "Company Name": "Hotel Maestro Premium Cascavel", "Ho ID": "5f355a29acb6942f38d335b4", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 1598, "TotalReservas": 385}, {"Tb Property ID": 1972, "Company Name": "POUSADA FAVARETO", "Ho ID": "5e431615acb694e9a8245892", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 183, "TotalReservas": 555}, {"Tb Property ID": 1994, "Company Name": "POUSADA VILLA MACIEL (Rede Costa Esmeralda)", "Ho ID": "5e4315fdacb694e9a82447ad", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "Rede Costa Esmeralda", "Hunit ID": 798, "TotalReservas": 29}, {"Tb Property ID": 2651, "Company Name": "HOTEL DO PESCADOR (Rede Brisa)", "Ho ID": "669e7557b776c838bf570d6c", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "REDE BRISA", "Hunit ID": 3960, "TotalReservas": null}, {"Tb Property ID": 2701, "Company Name": "ATALANTA HOTEL", "Ho ID": "5e4315f7acb694e9a8244309", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4738, "TotalReservas": 404}, {"Tb Property ID": 2987, "Company Name": "HOTEL RECANTO DA LAGOA", "Ho ID": "66c8920fb300b932de453683", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "null", "Group": "null", "Hunit ID": 4013, "TotalReservas": 103}, {"Tb Property ID": 3191, "Company Name": "BAH HOTEL", "Ho ID": "66e05225424e8552ee3873d8", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4053, "TotalReservas": null}, {"Tb Property ID": 3444, "Company Name": "ESCARPAS STYLES HOTEL", "Ho ID": "66f3196a0569986af56fcc77", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "GRUPO ESCARPAS HOTEIS", "Hunit ID": 4063, "TotalReservas": 280}, {"Tb Property ID": 4681, "Company Name": "KANTO SUITES & SPA", "Ho ID": "67042c5ada16777ec11c0f7b", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "GRUPO ESCARPAS HOTEIS", "Hunit ID": 4097, "TotalReservas": 188}, {"Tb Property ID": 4704, "Company Name": "HOTEL FRANCO", "Ho ID": "6711660d5b3346ba0eda5570", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "DESBRAVADOR", "Group": "null", "Hunit ID": 4128, "TotalReservas": 512}, {"Tb Property ID": 4730, "Company Name": "UP BOUTIQUE HOTEL", "Ho ID": "67229a529727c63537448f20", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "Rede Costa Esmeralda", "Hunit ID": 4143, "TotalReservas": 78}, {"Tb Property ID": 4735, "Company Name": "HOTEL ELDORADO FLAT (Brazil Sales)", "Ho ID": "6725305dae7bb87d0b211bdf", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4146, "TotalReservas": 272}, {"Tb Property ID": 4768, "Company Name": "SR FARM (Rede SR)", "Ho ID": "673f8e388f32e98c52511978", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE SR", "Hunit ID": 4162, "TotalReservas": 190}, {"Tb Property ID": 4798, "Company Name": "HOTEL LOPES CAXAMBU", "Ho ID": "6749fe2bb24a866b355fab85", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4255, "TotalReservas": 158}, {"Tb Property ID": 4905, "Company Name": "HOTEL TROPICAL PTU (Rede Eldorado)", "Ho ID": "678821f8377e8f7aef8c62bd", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "REDE ELDORADO", "Hunit ID": 4259, "TotalReservas": 52}, {"Tb Property ID": 4907, "Company Name": "HOTEL ELDORADO ECONOMIC (Rede Eldorado)", "Ho ID": "678901cf377e8f7aef8c73f1", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "REDE ELDORADO", "Hunit ID": 4258, "TotalReservas": 120}, {"Tb Property ID": 4923, "Company Name": "TAMAREIRAS PRIME HOTEL (Rede Tamareiras)", "Ho ID": "679396e27a27e49adc91b94c", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "(Rede Tamareiras)", "Hunit ID": 4266, "TotalReservas": 208}, {"Tb Property ID": 4924, "Company Name": "TAMAREIRAS PARK HOTEL (Rede Tamareiras)", "Ho ID": "679398a97a27e49adc91b96a", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "(Rede Tamareiras)", "Hunit ID": 4267, "TotalReservas": 629}, {"Tb Property ID": 5000, "Company Name": "VILA EUROPÉIA HOTEL", "Ho ID": "67b72dad2220573014dd36fe", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4331, "TotalReservas": 271}, {"Tb Property ID": 5041, "Company Name": "PLANALTO HOTEL", "Ho ID": "67c896d61a29c0128ebbe27d", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "HITSAPIHSYSTEM", "Group": "null", "Hunit ID": 4383, "TotalReservas": 105}, {"Tb Property ID": 5156, "Company Name": "SR BEACH COUNTRY (Rede SR)", "Ho ID": "680bc0e0e62e91caca7a703c", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE SR", "Hunit ID": 4464, "TotalReservas": 272}, {"Tb Property ID": 5288, "Company Name": "Chalés do Holandês Eco Pousada", "Ho ID": "6862892370416ae3720386ad", "Contract Property Product Name": "HUNIT", "Pms Ativo": "NÃO", "Hoteisnet Ativo": "SIM", "Hoteisnet": "SIM", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Sim", "Pms": "null", "Group": "Rede Costa Esmeralda", "Hunit ID": 4313, "TotalReservas": 131}, {"Tb Property ID": 5304, "Company Name": "SR ÁGUAS TERMAIS (Rede SR)", "Ho ID": "686be30dc634752c40a89318", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE SR", "Hunit ID": 4597, "TotalReservas": 266}, {"Tb Property ID": 5424, "Company Name": "SR SUNSET (Rede SR)", "Ho ID": "68b06f021958f0727d459619", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE SR", "Hunit ID": 4697, "TotalReservas": 239}, {"Tb Property ID": 5472, "Company Name": "SR BEACH VILAS (Rede SR)", "Ho ID": "68c42de31c1cc3d4f5f82cbf", "Contract Property Product Name": "HUNIT", "Pms Ativo": "SIM", "Hoteisnet Ativo": "NÃO", "Hoteisnet": "NÃO", "HPay Hbook": "Não", "Hpay": "NÃO", "Modelo": "Plus", "Extras Hbook": "Não", "Pms": "HITSAPIHSYSTEM", "Group": "REDE SR", "Hunit ID": 4726, "TotalReservas": 253}];
+
+// ANNOTATIONS in-memory cache, keyed by hotel_key
+let ANNOT = {};   // { '<key>': { status, comentario, updated_at, updated_by } }
+
+// === GROUP DEFINITIONS ====================================================
+function pmsBucket(p) {
+  if (!p || p === 'null') return 'nopms';
+  if (p === 'DESBRAVADOR') return 'desb';
+  if (p === 'HITS' || p === 'HITSAPIHSYSTEM') return 'hits';
+  if (p === 'APPSISTEMAS') return 'app';
+  return 'outros';
+}
+function groupKey(d) {
+  const m = (d.Modelo || '').toLowerCase();
+  const b = pmsBucket(d.Pms);
+  if (b === 'app') return 'outros';
+  if (m === 'lite' && b === 'nopms') return 'lite-nopms';
+  if (m === 'lite' && b === 'desb')  return 'lite-desb';
+  if (m === 'lite' && b === 'hits')  return 'lite-hits';
+  if (m === 'plus' && b === 'nopms') return 'plus-nopms';
+  if (m === 'plus' && b === 'desb')  return 'plus-desb';
+  if (m === 'plus' && b === 'hits')  return 'plus-hits';
+  return 'outros';
+}
+const GROUPS = {
+  'lite-nopms': DATA.filter(d => groupKey(d) === 'lite-nopms'),
+  'lite-desb':  DATA.filter(d => groupKey(d) === 'lite-desb'),
+  'lite-hits':  DATA.filter(d => groupKey(d) === 'lite-hits'),
+  'plus-nopms': DATA.filter(d => groupKey(d) === 'plus-nopms'),
+  'plus-desb':  DATA.filter(d => groupKey(d) === 'plus-desb'),
+  'plus-hits':  DATA.filter(d => groupKey(d) === 'plus-hits'),
+  'outros':     DATA.filter(d => groupKey(d) === 'outros'),
+  'all':        DATA
+};
+
+function annotKey(d) { return String(d['Hunit ID'] || d['Tb Property ID']); }
+function getAnnot(d) {
+  return ANNOT[annotKey(d)] || { status:'pendente', comentario:'', updated_at:null, updated_by:null };
+}
+
+// === DATE =================================================================
+const _d = new Date();
+document.getElementById('today').textContent = _d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+
+// === HELPERS ==============================================================
+function pmsTag(p) {
+  if (!p || p === 'null') return '<span class="pms-tag pms-null">Sem PMS</span>';
+  if (p === 'HITSAPIHSYSTEM') return '<span class="pms-tag pms-hits">HITS App</span>';
+  if (p === 'HITS') return '<span class="pms-tag pms-hits">HITS</span>';
+  if (p === 'DESBRAVADOR') return '<span class="pms-tag pms-desb">Desbravador</span>';
+  if (p === 'APPSISTEMAS') return '<span class="pms-tag pms-app">AppSistemas</span>';
+  return '<span class="pms-tag pms-null">'+p+'</span>';
+}
+function reservasFmt(n) {
+  if (n === null || n === undefined || n === '') return '<span class="reservas-null">—</span>';
+  return '<span class="reservas-num">'+Number(n).toLocaleString('pt-BR')+'</span>';
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatUpdatedMeta(a) {
+  if (!a.updated_at) return '';
+  const dt = new Date(a.updated_at);
+  const t = dt.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  return `por ${escapeHtml(a.updated_by || 'anônimo')} · ${t}`;
+}
+
+function renderRow(d, idx, includeModelo) {
+  const a = getAnnot(d);
+  const cls = a.status === 'apto' ? 'row-apto' : a.status === 'naoapto' ? 'row-naoapto' : '';
+  const k = annotKey(d);
+  const modeloCell = includeModelo
+    ? `<td><span class="section-pill ${d.Modelo === 'Plus' ? 'pill-plus' : 'pill-lite'}">${escapeHtml(d.Modelo || '—')}</span></td>` : '';
+  return `<tr class="${cls}" data-key="${k}" data-status="${a.status}">
+    <td><span class="id-mono">${d['Tb Property ID']}</span></td>
+    <td>
+      <div class="hotel-name">${escapeHtml(d['Company Name'] || '')}</div>
+      <div class="hotel-group">${escapeHtml(d['Group'] && d['Group']!=='null' ? d['Group'] : 'Sem grupo')}</div>
+    </td>
+    <td><span class="id-mono">${escapeHtml(d['Group'] && d['Group']!=='null' ? d['Group'] : '—')}</span></td>
+    ${modeloCell}
+    <td>${pmsTag(d.Pms)}</td>
+    <td>${reservasFmt(d.TotalReservas)}</td>
+    <td>
+      <select class="status-select s-${a.status}" onchange="onStatusChange('${k}', this)">
+        <option value="pendente" ${a.status==='pendente'?'selected':''}>— Pendente</option>
+        <option value="apto" ${a.status==='apto'?'selected':''}>✓ Apto</option>
+        <option value="naoapto" ${a.status==='naoapto'?'selected':''}>✗ Não apto</option>
+      </select>
+    </td>
+    <td class="comment-cell">
+      <textarea class="comment-input" rows="1" placeholder="Adicionar observação..."
+        oninput="onCommentChange('${k}', this)">${escapeHtml(a.comentario)}</textarea>
+      <div class="updated-meta">${formatUpdatedMeta(a)}</div>
+    </td>
+  </tr>`;
+}
+
+function findData(k) { return DATA.find(d => annotKey(d) === k); }
+
+// === SUPABASE CLIENT ======================================================
+let sb = null;
+let online = false;
+const isConfigured = SUPABASE_URL && !SUPABASE_URL.includes('SEU-PROJETO') &&
+                     SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('COLE-');
+
+function setConn(state) {
+  const el = document.getElementById('conn-status');
+  el.className = 'conn-pill ' + state;
+  if (state === 'online')      el.innerHTML = '<span class="conn-dot"></span> Online';
+  if (state === 'offline')     el.innerHTML = '<span class="conn-dot"></span> Offline';
+  if (state === 'connecting')  el.innerHTML = '<span class="conn-dot"></span> Conectando…';
+}
+
+async function initSupabase() {
+  if (!isConfigured) {
+    document.getElementById('setup-banner').style.display = 'block';
+    setConn('offline');
+    // Fall back to localStorage so it still works "individualmente"
+    try { ANNOT = JSON.parse(localStorage.getItem('hunit-piloto-annotations-v1')) || {}; } catch(e) { ANNOT = {}; }
+    renderAll();
+    return;
+  }
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    setConn('connecting');
+    // Initial fetch
+    const { data, error } = await sb.from(TABLE_NAME).select('*');
+    if (error) throw error;
+    ANNOT = {};
+    (data || []).forEach(row => {
+      ANNOT[row.hotel_key] = {
+        status: row.status || 'pendente',
+        comentario: row.comentario || '',
+        updated_at: row.updated_at,
+        updated_by: row.updated_by
+      };
+    });
+    online = true;
+    setConn('online');
+    renderAll();
+
+    // Subscribe to realtime changes
+    sb.channel('annotations-changes')
+      .on('postgres_changes', { event:'*', schema:'public', table: TABLE_NAME }, payload => {
+        const row = payload.new || payload.old;
+        if (!row || !row.hotel_key) return;
+        if (payload.eventType === 'DELETE') {
+          delete ANNOT[row.hotel_key];
+        } else {
+          ANNOT[row.hotel_key] = {
+            status: row.status || 'pendente',
+            comentario: row.comentario || '',
+            updated_at: row.updated_at,
+            updated_by: row.updated_by
+          };
+        }
+        applyRowUpdate(row.hotel_key, true);
+      })
+      .subscribe();
+  } catch (e) {
+    console.error('Supabase init failed:', e);
+    setConn('offline');
+    document.getElementById('setup-banner').style.display = 'block';
+    document.getElementById('setup-banner').querySelector('p').innerHTML =
+      'Não foi possível conectar ao Supabase: <code>' + escapeHtml(e.message || e) +
+      '</code>. Verifique URL, anon key, RLS e se a tabela <code>' + TABLE_NAME + '</code> existe.';
+    renderAll();
+  }
+}
+
+async function persist(k, patch) {
+  // optimistic local update
+  const prev = ANNOT[k] || { status:'pendente', comentario:'' };
+  ANNOT[k] = Object.assign({}, prev, patch, { updated_by: ME, updated_at: new Date().toISOString() });
+  if (!sb || !online) {
+    // local fallback
+    try { localStorage.setItem('hunit-piloto-annotations-v1', JSON.stringify(ANNOT)); } catch(e) {}
+    return;
+  }
+  const row = {
+    hotel_key: k,
+    status: ANNOT[k].status,
+    comentario: ANNOT[k].comentario,
+    updated_by: ME,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from(TABLE_NAME).upsert(row, { onConflict: 'hotel_key' });
+  if (error) {
+    console.error('Persist failed:', error);
+    setConn('offline'); online = false;
+  } else {
+    setConn('online'); online = true;
+  }
+}
+
+// === USER (ME) ============================================================
+let ME = localStorage.getItem('hunit-piloto-me') || '';
+function showNameModal() {
+  document.getElementById('name-input').value = ME || '';
+  document.getElementById('name-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('name-input').focus(), 50);
+}
+window.saveName = function() {
+  const v = (document.getElementById('name-input').value || '').trim();
+  if (!v) { alert('Digite um nome.'); return; }
+  ME = v;
+  localStorage.setItem('hunit-piloto-me', ME);
+  document.getElementById('me-name').textContent = ME;
+  document.getElementById('name-modal').style.display = 'none';
+};
+window.changeName = showNameModal;
+
+// === HANDLERS ============================================================
+window.onStatusChange = function(k, el) {
+  if (!ME) { el.value = (ANNOT[k]?.status || 'pendente'); showNameModal(); return; }
+  const value = el.value;
+  persist(k, { status: value });
+  applyRowUpdate(k, false);
+};
+
+let _commentTimers = {};
+window.onCommentChange = function(k, el) {
+  if (!ME) { showNameModal(); return; }
+  clearTimeout(_commentTimers[k]);
+  _commentTimers[k] = setTimeout(() => {
+    persist(k, { comentario: el.value });
+    applyRowUpdate(k, false);
+  }, 400);
+};
+
+function applyRowUpdate(k, flash) {
+  const a = ANNOT[k] || { status:'pendente', comentario:'', updated_by:null, updated_at:null };
+  document.querySelectorAll(`tr[data-key="${k}"]`).forEach(tr => {
+    tr.classList.remove('row-apto','row-naoapto');
+    if (a.status === 'apto') tr.classList.add('row-apto');
+    if (a.status === 'naoapto') tr.classList.add('row-naoapto');
+    tr.dataset.status = a.status;
+    const sel = tr.querySelector('.status-select');
+    if (sel) {
+      sel.value = a.status;
+      sel.className = 'status-select s-' + a.status;
+    }
+    const ti = tr.querySelector('.comment-input');
+    if (ti && document.activeElement !== ti) {
+      ti.value = a.comentario || '';
+    }
+    const meta = tr.querySelector('.updated-meta');
+    if (meta) meta.textContent = formatUpdatedMeta(a);
+    if (flash) {
+      tr.classList.remove('row-flash');
+      void tr.offsetWidth;
+      tr.classList.add('row-flash');
+    }
+  });
+  refreshSummary();
+}
+
+// === RENDER =============================================================
+function renderAll() {
+  document.getElementById('tbody-all').innerHTML =
+    DATA.map((d,i) => renderRow(d, i, true)).join('') ||
+    '<tr class="empty-row"><td colspan="8">Nenhum hotel</td></tr>';
+  ['lite-nopms','lite-desb','lite-hits','plus-nopms','plus-desb','plus-hits','outros'].forEach(g => {
+    const tb = document.getElementById('tbody-' + g);
+    if (!tb) return;
+    const rows = GROUPS[g];
+    tb.innerHTML = rows.length
+      ? rows.map((d,i) => renderRow(d, i, false)).join('')
+      : '<tr class="empty-row"><td colspan="8">Nenhum hotel neste grupo</td></tr>';
+  });
+  Object.keys(GROUPS).forEach(g => {
+    const el = document.getElementById('c-' + g);
+    if (el) el.textContent = GROUPS[g].length;
+    const gel = document.getElementById('g-' + g);
+    if (gel) gel.textContent = GROUPS[g].length;
+  });
+  document.getElementById('count-all-label').textContent = DATA.length + ' hotéis';
+  document.getElementById('total-count').textContent = DATA.length;
+  refreshSummary();
+}
+
+function refreshSummary() {
+  let apto=0, nao=0, pend=0;
+  DATA.forEach(d => {
+    const a = getAnnot(d);
+    if (a.status === 'apto') apto++;
+    else if (a.status === 'naoapto') nao++;
+    else pend++;
+  });
+  document.getElementById('apto-count').textContent = apto;
+  document.getElementById('naoapto-count').textContent = nao;
+  document.getElementById('pendente-count').textContent = pend;
+}
+
+// === TABS ===============================================================
+window.switchTab = function(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.group-card').forEach(c => c.classList.remove('active'));
+  const pane = document.getElementById('tab-' + tab); if (pane) pane.classList.add('active');
+  const btn = document.querySelector('.tab-btn[data-tab="'+tab+'"]'); if (btn) btn.classList.add('active');
+  const card = document.querySelector('.group-card.' + tab); if (card) card.classList.add('active');
+  window.scrollTo({ top: card ? card.getBoundingClientRect().top + window.scrollY - 80 : 0, behavior:'smooth' });
+};
+
+// === FILTER =============================================================
+window.filterTable = function(tableId, query) {
+  const q = (query || '').toLowerCase();
+  document.querySelectorAll('#' + tableId + ' tbody tr').forEach(tr => {
+    if (tr.classList.contains('empty-row')) return;
+    const txt = tr.textContent.toLowerCase();
+    tr.style.display = txt.includes(q) ? '' : 'none';
+  });
+};
+window.filterByStatus = function(tableId, status) {
+  document.querySelectorAll('#' + tableId + ' tbody tr').forEach(tr => {
+    if (tr.classList.contains('empty-row')) return;
+    if (!status) { tr.style.display=''; return; }
+    tr.style.display = tr.dataset.status === status ? '' : 'none';
+  });
+};
+
+// === EXPORT =============================================================
+const EXPORT_HEADERS = [
+  'Tb Property ID','Company Name','Group','Modelo','Pms','Pms Ativo',
+  'Hoteisnet','Extras Hbook','Hunit ID','TotalReservas','Status Piloto','Comentário','Atualizado por','Atualizado em'
+];
+function exportRowFor(d) {
+  const a = getAnnot(d);
+  const statusLabel = a.status === 'apto' ? 'Apto' : a.status === 'naoapto' ? 'Não apto' : 'Pendente';
+  return {
+    'Tb Property ID': d['Tb Property ID'],
+    'Company Name': d['Company Name'],
+    'Group': (d['Group'] && d['Group']!=='null') ? d['Group'] : '',
+    'Modelo': d['Modelo'] || '',
+    'Pms': d['Pms'] && d['Pms']!=='null' ? d['Pms'] : '',
+    'Pms Ativo': d['Pms Ativo'] || '',
+    'Hoteisnet': d['Hoteisnet'] || '',
+    'Extras Hbook': d['Extras Hbook'] || '',
+    'Hunit ID': d['Hunit ID'],
+    'TotalReservas': d['TotalReservas'],
+    'Status Piloto': statusLabel,
+    'Comentário': a.comentario || '',
+    'Atualizado por': a.updated_by || '',
+    'Atualizado em': a.updated_at ? new Date(a.updated_at).toLocaleString('pt-BR') : ''
+  };
+}
+function csvEscape(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/[",;\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+window.exportCSV = function(group) {
+  const rows = GROUPS[group] || DATA;
+  const lines = [EXPORT_HEADERS.join(';')];
+  rows.forEach(d => {
+    const r = exportRowFor(d);
+    lines.push(EXPORT_HEADERS.map(h => csvEscape(r[h])).join(';'));
+  });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hunit-piloto-' + group + '.csv';
+  a.click();
+};
+window.exportXLSX = function(group) {
+  const rows = (GROUPS[group] || DATA).map(exportRowFor);
+  const ws = XLSX.utils.json_to_sheet(rows, { header: EXPORT_HEADERS });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, group);
+  XLSX.writeFile(wb, 'hunit-piloto-' + group + '.xlsx');
+};
+
+// === INIT ===============================================================
+(async () => {
+  // 1) Renderiza imediatamente — tabela aparece mesmo sem Supabase
+  renderAll();
+  // 2) Pede o nome se ainda não tem
+  if (!ME) showNameModal();
+  else document.getElementById('me-name').textContent = ME;
+  // 3) Tenta Supabase em background; se falhar, página continua usável (modo local)
+  initSupabase().catch(e => {
+    console.error('initSupabase falhou:', e);
+    setConn('offline');
+  });
+})();
+</script>
+</body>
+</html>
