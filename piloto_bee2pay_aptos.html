@@ -201,6 +201,13 @@ async function loadData() {
     annotMap[a.hotel_key] = a;
   });
 
+  // DEBUG: logar primeiras chaves para verificar match
+  const firstAnnotKeys = Object.keys(annotMap).slice(0,5);
+  const firstHotelKeys = (hoteisRes.data || []).slice(0,5).map(h => String(h.hunit_id || h.tb_property_id));
+  console.log('[Bee2Pay] Annotation keys (primeiros 5):', firstAnnotKeys);
+  console.log('[Bee2Pay] Hotel keys calculados (primeiros 5):', firstHotelKeys);
+  console.log('[Bee2Pay] Total anotações:', (annotRes.data||[]).length);
+
   ALL_DATA = (hoteisRes.data || []).map(h => {
     const key = String(h.hunit_id || h.tb_property_id);
     const ann = annotMap[key] || {};
