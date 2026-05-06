@@ -224,6 +224,7 @@
 
   .hotel-name { font-weight:500; color:var(--text); }
   .hotel-group { font-size:11px; color:var(--text3); margin-top:2px; }
+  .hotel-hcode { font-family:'DM Mono',monospace; font-size:10px; color:var(--text3); opacity:0.6; margin-top:1px; }
   .id-mono { font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); }
 
   .badge {
@@ -810,6 +811,7 @@ function renderRow(d, idx, includeModelo) {
     <td>
       <div class="hotel-name">${escapeHtml(d['Company Name'] || '')}</div>
       <div class="hotel-group">${escapeHtml(d['Group'] && d['Group']!=='null' ? d['Group'] : 'Sem grupo')}</div>
+      <div class="hotel-hcode">${escapeHtml(d['Ho ID'] || d.ho_id || '')}</div>
     </td>
     ${modeloCell}
     <td>${pmsTag(d.Pms)}</td>
