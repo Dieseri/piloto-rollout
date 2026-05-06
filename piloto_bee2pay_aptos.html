@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hunit — Piloto Bee2Pay | Análise</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#161820; --surface2:#1e2028;
+    --border:#2a2d38; --border2:#343748;
+    --text:#e8eaf2; --text2:#9097b8; --text3:#5a6080;
+    --accent:#4f6ef7; --accent2:#7c3aed;
+    --green:#22c55e; --yellow:#eab308; --red:#ef4444; --orange:#f97316; --teal:#14b8a6;
+    --bee:#c84b2f;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+
+  .header {
+    background:linear-gradient(135deg,#0d0f14 0%,#1a0f0f 50%,#0d0f14 100%);
+    border-bottom:1px solid var(--border);
+    padding:24px 36px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100; backdrop-filter:blur(12px);
+    flex-wrap:wrap; gap:14px;
+  }
+  .header-left { display:flex; align-items:center; gap:14px; }
+  .logo-badge {
+    background:linear-gradient(135deg,var(--bee),#a03020);
+    color:white; font-family:'DM Mono',monospace; font-size:13px; font-weight:500;
+    padding:6px 14px; border-radius:6px; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  .header h1 { font-size:18px; font-weight:600; }
+  .header-meta { font-size:12px; color:var(--text3); font-family:'DM Mono',monospace; display:flex; align-items:center; gap:10px; }
+  .back-link { font-size:12px; color:var(--text3); font-family:'DM Mono',monospace; text-decoration:none; padding:5px 11px; border:1px solid var(--border2); border-radius:6px; background:var(--surface2); }
+  .back-link:hover { color:var(--text); border-color:var(--accent); }
+
+  .container { max-width:1400px; margin:0 auto; padding:28px 36px; }
+
+  /* Toggle */
+  .view-toggle { display:flex; align-items:center; gap:8px; margin-bottom:20px; }
+  .toggle-btn {
+    padding:6px 16px; border:1px solid var(--border2); background:var(--surface);
+    color:var(--text2); font-family:'DM Mono',monospace; font-size:12px; cursor:pointer;
+    border-radius:6px; transition:all 0.15s;
+  }
+  .toggle-btn:hover { color:var(--text); border-color:var(--accent); }
+  .toggle-btn.active { background:var(--surface2); color:var(--text); border-color:var(--accent); }
+  .toggle-note { font-size:11px; color:var(--text3); font-family:'DM Mono',monospace; margin-left:6px; }
+
+  /* KPIs */
+  .kpi-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:24px; }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 18px; }
+  .kpi-label { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--text3); font-family:'DM Mono',monospace; margin-bottom:8px; }
+  .kpi-value { font-size:28px; font-weight:600; font-family:'DM Mono',monospace; line-height:1; }
+  .kpi-note { font-size:11px; color:var(--text3); margin-top:5px; }
+  .kpi.green .kpi-value { color:var(--green); }
+  .kpi.red .kpi-value { color:var(--bee); }
+  .kpi.blue .kpi-value { color:var(--accent); }
+  .kpi.yellow .kpi-value { color:var(--yellow); }
+
+  /* Alert */
+  .alert {
+    background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2);
+    border-left:3px solid var(--green); border-radius:0 6px 6px 0;
+    padding:14px 18px; margin-bottom:24px; font-size:13px; line-height:1.6; color:var(--text2);
+  }
+  .alert strong { color:var(--green); }
+
+  /* Charts */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .chart-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px 24px; }
+  .section-title { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--text3); font-family:'DM Mono',monospace; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px; }
+  .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
+  .bar-label { width:160px; font-size:12px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; color:var(--text2); }
+  .bar-track { flex:1; background:var(--surface2); height:14px; border-radius:2px; }
+  .bar-fill { height:100%; border-radius:2px; transition:width 0.3s; }
+  .bar-val { width:55px; font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); flex-shrink:0; }
+
+  /* Table */
+  .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:24px; }
+  .controls { display:flex; gap:8px; padding:14px 20px; border-bottom:1px solid var(--border); align-items:center; background:var(--surface2); flex-wrap:wrap; }
+  .search-input {
+    padding:6px 12px; border:1px solid var(--border2); background:var(--bg);
+    font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text);
+    outline:none; border-radius:6px; width:220px;
+  }
+  .search-input:focus { border-color:var(--accent); }
+  .filter-btn {
+    padding:5px 12px; border:1px solid var(--border2); background:var(--surface);
+    font-size:11px; font-family:'DM Mono',monospace; color:var(--text2); cursor:pointer;
+    border-radius:6px; transition:all 0.1s;
+  }
+  .filter-btn:hover { color:var(--text); border-color:var(--accent); }
+  .filter-btn.active { background:var(--surface2); color:var(--text); border-color:var(--accent); }
+  .result-count { margin-left:auto; font-size:11px; font-family:'DM Mono',monospace; color:var(--text3); }
+
+  table { width:100%; border-collapse:collapse; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:1.2px; font-family:'DM Mono',monospace; font-weight:400; border-bottom:1px solid var(--border); cursor:pointer; white-space:nowrap; }
+  th:hover { color:var(--text2); }
+  th.sorted { color:var(--accent); }
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--surface2); }
+  td { padding:9px 14px; font-size:13px; vertical-align:middle; }
+  .td-mono { font-family:'DM Mono',monospace; font-size:12px; color:var(--text2); }
+  .td-name { font-weight:500; }
+  .td-name small { display:block; font-size:11px; color:var(--text3); font-weight:400; margin-top:2px; }
+  .comment-cell { font-size:11px; color:var(--text3); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .chip { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-family:'DM Mono',monospace; font-weight:600; }
+  .chip-Alto { background:rgba(200,75,47,0.15); color:var(--bee); }
+  .chip-Médio { background:rgba(234,179,8,0.15); color:var(--yellow); }
+  .chip-Baixo { background:rgba(34,197,94,0.12); color:var(--green); }
+  .chip-Nulo { background:var(--surface2); color:var(--text3); }
+  .chip-apto { background:rgba(34,197,94,0.12); color:var(--green); }
+  .chip-naoapto { background:rgba(200,75,47,0.15); color:var(--bee); }
+  .chip-pendente { background:rgba(234,179,8,0.15); color:var(--yellow); }
+  .chip-plus { background:rgba(168,85,247,0.15); color:#a855f7; }
+  .chip-lite { background:rgba(59,130,246,0.15); color:#3b82f6; }
+
+  .inline-bar { display:flex; align-items:center; gap:6px; }
+  .inline-bar-track { width:50px; background:var(--surface2); height:5px; border-radius:2px; }
+  .inline-bar-fill { height:100%; border-radius:2px; }
+
+  .pagination { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-top:1px solid var(--border); background:var(--surface2); }
+  .page-info { font-size:11px; color:var(--text3); font-family:'DM Mono',monospace; }
+  .page-btns { display:flex; gap:4px; }
+  .page-btn { background:var(--surface); border:1px solid var(--border2); color:var(--text2); padding:5px 10px; font-size:11px; cursor:pointer; font-family:'DM Mono',monospace; border-radius:4px; }
+  .page-btn:hover:not(:disabled) { background:var(--surface2); color:var(--text); }
+  .page-btn:disabled { opacity:0.3; cursor:default; }
+  .page-btn.current { background:var(--accent); border-color:var(--accent); color:white; }
+
+  .loading { display:flex; align-items:center; justify-content:center; padding:60px; color:var(--text3); font-family:'DM Mono',monospace; font-size:13px; gap:10px; }
+  .spinner { width:16px; height:16px; border:2px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  footer { text-align:center; padding:20px; font-size:11px; color:var(--text3); font-family:'DM Mono',monospace; border-top:1px solid var(--border); margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-badge">Bee2Pay</div>
+    <div>
+      <h1>Piloto Bee2Pay — Análise de Impacto</h1>
+      <div class="header-meta">Dados em tempo real · Supabase</div>
+    </div>
+  </div>
+  <a class="back-link" href="index.html">← Voltar ao Piloto</a>
+</div>
+
+<div class="container">
+  <div id="main-content">
+    <div class="loading"><div class="spinner"></div> Carregando dados do Supabase...</div>
+  </div>
+</div>
+
+<footer id="footer">Hunit · Piloto Bee2Pay · Carregando...</footer>
+
+<script>
+const SUPABASE_URL = 'https://tljfvabzwydxyarturcc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsamZ2YWJ6d3lkeHlhcnR1cmNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NjkzMzYsImV4cCI6MjA5MzQ0NTMzNn0.ODznR-lVFQbHDh5CdVD0cXt7_hLgPC36RdG36vGU3IY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let ALL_DATA = [];
+let currentView = 'aptos';
+let sortKey = 'acessos';
+let sortDir = -1;
+let filterStatus = 'todos';
+let page = 1;
+const PAGE_SIZE = 50;
+
+function impacto(taxa) {
+  if (taxa >= 60) return 'Alto';
+  if (taxa >= 30) return 'Médio';
+  if (taxa > 0)  return 'Baixo';
+  return 'Nulo';
+}
+
+const impactColor = { Alto:'#c84b2f', Médio:'#eab308', Baixo:'#22c55e', Nulo:'#5a6080' };
+
+async function loadData() {
+  const [hoteisRes, annotRes] = await Promise.all([
+    sb.from('hoteis').select('*'),
+    sb.from('hunit_piloto_anotacoes').select('*')
+  ]);
+
+  if (hoteisRes.error || annotRes.error) {
+    document.getElementById('main-content').innerHTML =
+      '<div class="loading" style="color:#ef4444">Erro ao carregar dados do Supabase.</div>';
+    return;
+  }
+
+  const annotMap = {};
+  (annotRes.data || []).forEach(a => {
+    const key = a.hunit_id + '_' + a.tb_property_id;
+    annotMap[key] = a;
+  });
+
+  ALL_DATA = (hoteisRes.data || []).map(h => {
+    const key = h.hunit_id + '_' + h.tb_property_id;
+    const ann = annotMap[key] || {};
+    const reservas = h.total_reservas || 0;
+    const acessos = h.acessos_cartao || 0;
+    const taxa = reservas > 0 ? parseFloat((acessos / reservas * 100).toFixed(1)) : 0;
+    return {
+      hunit_id:   h.hunit_id,
+      tb_id:      h.tb_property_id,
+      nome:       h.company_name || '',
+      modelo:     h.modelo || '',
+      pms:        h.pms || null,
+      hoteisnet:  h.hoteisnet || 'NÃO',
+      hpay:       h.hpay || 'NÃO',
+      extras:     h.extras_hbook || 'Não',
+      group:      h.group_name || '',
+      reservas,
+      acessos,
+      taxa,
+      impacto:    impacto(taxa),
+      status:     ann.status || 'pendente',
+      comentario: ann.comentario || '',
+      updated_by: ann.updated_by || '',
+    };
+  });
+
+  renderAll();
+
+  const total = ALL_DATA.length;
+  const aptos = ALL_DATA.filter(d => d.status === 'apto').length;
+  const pend  = ALL_DATA.filter(d => d.status === 'pendente').length;
+  const naoa  = ALL_DATA.filter(d => d.status === 'naoapto').length;
+  document.getElementById('footer').textContent =
+    `Hunit · Piloto Bee2Pay · ${total} hotéis · ${aptos} aptos · ${pend} pendentes · ${naoa} não aptos · atualizado em tempo real`;
+}
+
+function getViewData() {
+  return currentView === 'aptos' ? ALL_DATA.filter(d => d.status === 'apto') : ALL_DATA;
+}
+
+function calcKPIs(data) {
+  const total       = data.length;
+  const aptos       = data.filter(d => d.status === 'apto').length;
+  const totalAc     = data.reduce((s,d) => s + d.acessos, 0);
+  const totalRes    = data.reduce((s,d) => s + d.reservas, 0);
+  const semAcesso   = data.filter(d => d.acessos === 0).length;
+  const taxaMedia   = totalRes > 0 ? (totalAc / totalRes * 100).toFixed(1) : '0.0';
+  const acessosDia  = (totalAc / 60).toFixed(1);
+  return { total, aptos, totalAc, totalRes, semAcesso, taxaMedia, acessosDia };
+}
+
+function renderAll() {
+  const vd = getViewData();
+  const k  = calcKPIs(vd);
+  const allK = calcKPIs(ALL_DATA);
+
+  const aptoCount = ALL_DATA.filter(d=>d.status==='apto').length;
+  const pendCount = ALL_DATA.filter(d=>d.status==='pendente').length;
+  const naoCount  = ALL_DATA.filter(d=>d.status==='naoapto').length;
+
+  // Alert dinâmico
+  const alto = vd.filter(d => d.impacto === 'Alto').length;
+  const nulo = vd.filter(d => d.acessos === 0).length;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="view-toggle">
+      <button class="toggle-btn ${currentView==='aptos'?'active':''}" onclick="setView('aptos')">✓ Aptos (${aptoCount})</button>
+      <button class="toggle-btn ${currentView==='todos'?'active':''}" onclick="setView('todos')">Todos (${ALL_DATA.length})</button>
+      <span class="toggle-note" id="toggle-note">${currentView==='aptos'?'Exibindo apenas hotéis aptos':'Exibindo todos os hotéis avaliados'}</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi green">
+        <div class="kpi-label">${currentView==='aptos'?'Hotéis Aptos':'Total Hotéis'}</div>
+        <div class="kpi-value">${currentView==='aptos'?k.aptos:k.total}</div>
+        <div class="kpi-note">${currentView==='aptos'?'De '+ALL_DATA.length+' avaliados':'Avaliados'}</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">Acessos Cartão / 60d</div>
+        <div class="kpi-value">${k.totalAc.toLocaleString('pt-BR')}</div>
+        <div class="kpi-note">${currentView==='aptos'?'Só aptos':'Todos'}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Acessos / dia</div>
+        <div class="kpi-value">${k.acessosDia}</div>
+        <div class="kpi-note">Média diária estimada</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Total Reservas</div>
+        <div class="kpi-value">${k.totalRes.toLocaleString('pt-BR')}</div>
+        <div class="kpi-note">60 dias</div>
+      </div>
+      <div class="kpi yellow">
+        <div class="kpi-label">Taxa Média</div>
+        <div class="kpi-value">${k.taxaMedia}%</div>
+        <div class="kpi-note">Acesso / reserva</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Sem Acesso</div>
+        <div class="kpi-value">${k.semAcesso}</div>
+        <div class="kpi-note">Impacto nulo</div>
+      </div>
+    </div>
+
+    <div class="alert">
+      <strong>Resumo:</strong> ${vd.length} hotéis em exibição —
+      <strong>${alto} com alto impacto</strong> na transição (taxa ≥60%) precisarão de onboarding dedicado.
+      <strong>${nulo} sem nenhum acesso</strong> registrado nos últimos 60 dias — impacto operacional nulo.
+      Média de <strong>${k.acessosDia} acessos/dia</strong> que migrarão para o Bee2Pay.
+    </div>
+
+    <div class="two-col">
+      <div class="chart-box">
+        <div class="section-title">Top 10 por Acessos ao Cartão</div>
+        <div id="top10-bars"></div>
+      </div>
+      <div class="chart-box">
+        <div class="section-title">Distribuição por Impacto</div>
+        <div id="impacto-bars"></div>
+        <div style="margin-top:20px">
+          <div class="section-title">Modelo</div>
+          <div id="modelo-bars"></div>
+        </div>
+        <div style="margin-top:20px">
+          <div class="section-title">Status geral (${ALL_DATA.length} hotéis)</div>
+          <div id="status-bars"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="controls">
+        <input class="search-input" id="search" type="text" placeholder="🔍 Buscar hotel..." oninput="page=1;renderTable()">
+        <button class="filter-btn active" id="f-todos" onclick="setFilter('todos')">Todos</button>
+        <button class="filter-btn" id="f-apto" onclick="setFilter('apto')">✓ Aptos</button>
+        <button class="filter-btn" id="f-pendente" onclick="setFilter('pendente')">⏳ Pendentes</button>
+        <button class="filter-btn" id="f-naoapto" onclick="setFilter('naoapto')">✗ Não Aptos</button>
+        <button class="filter-btn" id="f-Alto" onclick="setFilter('Alto')">🔴 Alto Impacto</button>
+        <span class="result-count" id="count"></span>
+      </div>
+      <div id="table-container"></div>
+    </div>`;
+
+  renderCharts(vd);
+  renderTable();
+}
+
+function renderCharts(vd) {
+  // Top 10
+  const top10 = [...vd].sort((a,b) => b.acessos - a.acessos).slice(0,10);
+  const maxA = top10[0]?.acessos || 1;
+  document.getElementById('top10-bars').innerHTML = top10.map(d => `
+    <div class="bar-row">
+      <div class="bar-label" title="${d.nome}">${d.nome.substring(0,22)}${d.nome.length>22?'…':''}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.acessos/maxA*100)}%;background:${impactColor[d.impacto]}"></div></div>
+      <div class="bar-val">${d.acessos} <span style="font-size:10px;color:var(--text3)">${d.taxa}%</span></div>
+    </div>`).join('');
+
+  // Impacto
+  const impMap = {Alto:0,Médio:0,Baixo:0,Nulo:0};
+  vd.forEach(d => impMap[d.impacto]++);
+  const maxI = Math.max(...Object.values(impMap), 1);
+  document.getElementById('impacto-bars').innerHTML = Object.entries(impMap).map(([label, c]) => `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(c/maxI*100)}%;background:${impactColor[label]}"></div></div>
+      <div class="bar-val">${c} hotéis</div>
+    </div>`).join('');
+
+  // Modelo
+  const lite = vd.filter(d=>d.modelo==='Lite').length;
+  const plus = vd.filter(d=>d.modelo==='Plus').length;
+  const maxM = Math.max(lite, plus, 1);
+  document.getElementById('modelo-bars').innerHTML = [['Plus',plus,'#a855f7'],['Lite',lite,'#3b82f6']].map(([l,v,c]) => `
+    <div class="bar-row">
+      <div class="bar-label">${l} (${v})</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxM*100)}%;background:${c}"></div></div>
+      <div class="bar-val">${v}</div>
+    </div>`).join('');
+
+  // Status geral
+  const stMap = {apto:{c:0,color:'#22c55e',label:'Aptos'},pendente:{c:0,color:'#eab308',label:'Pendentes'},naoapto:{c:0,color:'#c84b2f',label:'Não Aptos'}};
+  ALL_DATA.forEach(d => { if(stMap[d.status]) stMap[d.status].c++; });
+  const maxS = Math.max(...Object.values(stMap).map(v=>v.c), 1);
+  document.getElementById('status-bars').innerHTML = Object.values(stMap).map(v => `
+    <div class="bar-row">
+      <div class="bar-label">${v.label} (${v.c})</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v.c/maxS*100)}%;background:${v.color}"></div></div>
+      <div class="bar-val">${v.c}</div>
+    </div>`).join('');
+}
+
+function getTableData() {
+  const vd = getViewData();
+  const q = (document.getElementById('search')?.value || '').toLowerCase();
+  let d = [...vd];
+  if (filterStatus !== 'todos' && filterStatus !== 'Alto') d = d.filter(x => x.status === filterStatus);
+  if (filterStatus === 'Alto') d = d.filter(x => x.impacto === 'Alto');
+  if (q) d = d.filter(x => x.nome.toLowerCase().includes(q) || x.comentario.toLowerCase().includes(q) || x.updated_by.toLowerCase().includes(q));
+  d.sort((a,b) => {
+    const av = typeof a[sortKey]==='string' ? a[sortKey] : Number(a[sortKey]);
+    const bv = typeof b[sortKey]==='string' ? b[sortKey] : Number(b[sortKey]);
+    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+  });
+  return d;
+}
+
+function renderTable() {
+  const data = getTableData();
+  const total = data.length;
+  const start = (page-1)*PAGE_SIZE;
+  const slice = data.slice(start, start+PAGE_SIZE);
+  const totalPages = Math.ceil(total/PAGE_SIZE);
+  const maxA = Math.max(...ALL_DATA.map(d=>d.acessos), 1);
+  if(document.getElementById('count')) document.getElementById('count').textContent = total + ' hotéis';
+
+  const rows = slice.map(d => `
+    <tr>
+      <td class="td-mono" style="font-size:11px;color:var(--text3)">${d.hunit_id}</td>
+      <td class="td-name">${d.nome}${d.group?`<small>${d.group}</small>`:''}</td>
+      <td><span class="chip chip-${d.modelo?.toLowerCase()}">${d.modelo}</span></td>
+      <td class="td-mono">${d.reservas.toLocaleString('pt-BR')}</td>
+      <td>
+        <div class="inline-bar">
+          <span class="td-mono" style="width:30px;text-align:right;font-size:12px">${d.acessos}</span>
+          <div class="inline-bar-track"><div class="inline-bar-fill" style="width:${Math.round(d.acessos/maxA*100)}%;background:${impactColor[d.impacto]}"></div></div>
+        </div>
+      </td>
+      <td class="td-mono" style="color:${impactColor[d.impacto]}">${d.taxa}%</td>
+      <td><span class="chip chip-${d.impacto}">${d.impacto}</span></td>
+      <td><span class="chip chip-${d.status}">${d.status==='naoapto'?'Não Apto':d.status==='apto'?'Apto':'Pendente'}</span></td>
+      <td class="comment-cell" title="${d.comentario}">${d.comentario||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${d.updated_by||'—'}</td>
+    </tr>`).join('');
+
+  let pageBtns = '';
+  for(let p=Math.max(1,page-2); p<=Math.min(totalPages,page+2); p++)
+    pageBtns += `<button class="page-btn ${p===page?'current':''}" onclick="goPage(${p})">${p}</button>`;
+
+  document.getElementById('table-container').innerHTML = `
+    <table>
+      <thead><tr>
+        <th onclick="setSort('hunit_id')" class="${sortKey==='hunit_id'?'sorted':''}">ID ↕</th>
+        <th onclick="setSort('nome')" class="${sortKey==='nome'?'sorted':''}">Hotel ↕</th>
+        <th onclick="setSort('modelo')" class="${sortKey==='modelo'?'sorted':''}">Modelo</th>
+        <th onclick="setSort('reservas')" class="${sortKey==='reservas'?'sorted':''}">Reservas ↕</th>
+        <th onclick="setSort('acessos')" class="${sortKey==='acessos'?'sorted':''}">Acessos Cartão ↕</th>
+        <th onclick="setSort('taxa')" class="${sortKey==='taxa'?'sorted':''}">Taxa ↕</th>
+        <th onclick="setSort('impacto')" class="${sortKey==='impacto'?'sorted':''}">Impacto</th>
+        <th onclick="setSort('status')" class="${sortKey==='status'?'sorted':''}">Status ↕</th>
+        <th>Comentário</th>
+        <th onclick="setSort('updated_by')" class="${sortKey==='updated_by'?'sorted':''}">Por</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="pagination">
+      <div class="page-info">Mostrando ${start+1}–${Math.min(start+PAGE_SIZE,total)} de ${total}</div>
+      <div class="page-btns">
+        <button class="page-btn" onclick="goPage(1)" ${page===1?'disabled':''}>«</button>
+        <button class="page-btn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>‹</button>
+        ${pageBtns}
+        <button class="page-btn" onclick="goPage(${page+1})" ${page>=totalPages?'disabled':''}>›</button>
+        <button class="page-btn" onclick="goPage(${totalPages})" ${page>=totalPages?'disabled':''}>»</button>
+      </div>
+    </div>`;
+}
+
+function setView(view) {
+  currentView = view;
+  filterStatus = 'todos';
+  page = 1;
+  renderAll();
+}
+
+function setFilter(f) {
+  filterStatus = f;
+  page = 1;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('f-'+f)?.classList.add('active');
+  renderTable();
+}
+
+function setSort(k) {
+  if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir=-1; }
+  page=1; renderTable();
+}
+
+function goPage(p) { page=p; renderTable(); }
+
+loadData();
+</script>
+</body>
+</html>
