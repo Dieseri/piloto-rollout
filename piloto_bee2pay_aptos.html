@@ -198,12 +198,11 @@ async function loadData() {
 
   const annotMap = {};
   (annotRes.data || []).forEach(a => {
-    const key = a.hunit_id + '_' + a.tb_property_id;
-    annotMap[key] = a;
+    annotMap[a.hotel_key] = a;
   });
 
   ALL_DATA = (hoteisRes.data || []).map(h => {
-    const key = h.hunit_id + '_' + h.tb_property_id;
+    const key = String(h.hunit_id || h.tb_property_id);
     const ann = annotMap[key] || {};
     const reservas = h.total_reservas || 0;
     const acessos = h.acessos_cartao || 0;
