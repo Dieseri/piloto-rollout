@@ -246,6 +246,7 @@
 
   .reservas-num { font-family:'DM Mono',monospace; font-size:12px; color:var(--text2); }
   .cartao-num { font-family:'DM Mono',monospace; font-size:12px; color:var(--teal); font-weight:600; }
+  .superapp-num { font-family:'DM Mono',monospace; font-size:12px; color:#a78bfa; font-weight:600; }
   .reservas-null { color:var(--text3); font-size:11px; }
 
   .status-select {
@@ -402,9 +403,6 @@
     <button class="tab-btn" data-tab="outros" onclick="switchTab('outros')">
       <span class="dot" style="background:var(--outros-color)"></span> Outros <span class="count" id="c-outros">0</span>
     </button>
-    <a class="tab-btn" href="piloto_bee2pay_aptos.html" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;border-color:rgba(200,75,47,0.3);color:var(--text2)">
-      <span class="dot" style="background:#c84b2f"></span> Bee2Pay ↗
-    </a>
   </div>
 
   <div id="tab-all" class="tab-pane active">
@@ -436,7 +434,7 @@
       <div class="table-wrap">
         <table id="table-all"><thead><tr>
           <th>#</th><th>Hotel</th><th>Modelo</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-all"></tbody></table>
       </div>
     </div>
@@ -476,7 +474,7 @@
       <div class="table-wrap">
         <table id="table-lite-nopms"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-lite-nopms"></tbody></table>
       </div>
     </div>
@@ -515,7 +513,7 @@
       <div class="table-wrap">
         <table id="table-lite-desb"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-lite-desb"></tbody></table>
       </div>
     </div>
@@ -554,7 +552,7 @@
       <div class="table-wrap">
         <table id="table-lite-hits"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-lite-hits"></tbody></table>
       </div>
     </div>
@@ -593,7 +591,7 @@
       <div class="table-wrap">
         <table id="table-plus-nopms"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-plus-nopms"></tbody></table>
       </div>
     </div>
@@ -632,7 +630,7 @@
       <div class="table-wrap">
         <table id="table-plus-desb"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-plus-desb"></tbody></table>
       </div>
     </div>
@@ -671,7 +669,7 @@
       <div class="table-wrap">
         <table id="table-plus-hits"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-plus-hits"></tbody></table>
       </div>
     </div>
@@ -710,7 +708,7 @@
       <div class="table-wrap">
         <table id="table-outros"><thead><tr>
           <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
+          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
         </tr></thead><tbody id="tbody-outros"></tbody></table>
       </div>
     </div>
@@ -789,6 +787,10 @@ function cartaoFmt(n) {
   if (n === null || n === undefined || n === '' || n === 0) return '<span class="reservas-null">—</span>';
   return '<span class="cartao-num">'+Number(n).toLocaleString('pt-BR')+'</span>';
 }
+function superapFmt(n) {
+  if (n === null || n === undefined || n === '' || n === 0) return '<span class="reservas-null">—</span>';
+  return '<span class="superapp-num">'+Number(n).toLocaleString('pt-BR')+'</span>';
+}
 function reservasFmt(n) {
   if (n === null || n === undefined || n === '') return '<span class="reservas-null">—</span>';
   return '<span class="reservas-num">'+Number(n).toLocaleString('pt-BR')+'</span>';
@@ -820,6 +822,7 @@ function renderRow(d, idx, includeModelo) {
     <td>${pmsTag(d.Pms)}</td>
     <td>${reservasFmt(d.TotalReservas)}</td>
     <td>${cartaoFmt(d.AcessosCartao)}</td>
+    <td>${superapFmt(d.AcessosSuperapp)}</td>
     <td>
       <select class="status-select s-${a.status}" onchange="onStatusChange('${k}', this)">
         <option value="pendente" ${a.status==='pendente'?'selected':''}>— Pendente</option>
@@ -869,7 +872,8 @@ function mapHotel(row) {
     'Contract Property Product Name': row.contract_product,
     'Group': row.group_name,
     'TotalReservas': row.total_reservas || 0,
-    'AcessosCartao': row.acessos_cartao || 0
+    'AcessosCartao': row.acessos_cartao || 0,
+    'AcessosSuperapp': row.acessos_superapp || 0
   };
 }
 function rebuildGroups() {
@@ -1118,7 +1122,7 @@ window.filterByStatus = function(tableId, status) {
 // === EXPORT =============================================================
 const EXPORT_HEADERS = [
   'Tb Property ID','Company Name','Group','Modelo','Pms','Pms Ativo',
-  'Hoteisnet','Extras Hbook','Hunit ID','TotalReservas','AcessosCartao',
+  'Hoteisnet','Extras Hbook','Hunit ID','TotalReservas','AcessosCartao','AcessosSuperapp',
   'Status Piloto','Comentário','Atualizado por','Atualizado em'
 ];
 function exportRowFor(d) {
@@ -1136,6 +1140,7 @@ function exportRowFor(d) {
     'Hunit ID': d['Hunit ID'],
     'TotalReservas': d['TotalReservas'],
     'AcessosCartao': d['AcessosCartao'] || 0,
+    'AcessosSuperapp': d['AcessosSuperapp'] || 0,
     'Status Piloto': statusLabel,
     'Comentário': a.comentario || '',
     'Atualizado por': a.updated_by || '',
