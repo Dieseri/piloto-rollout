@@ -730,6 +730,9 @@
   </div>
 </div>
 
+<!-- Identidade do usuário (quem está acessando) — carregado ANTES do script principal -->
+<script src="identidade/identidade.js"></script>
+
 <script>
 // ================================================================
 // CONFIGURAÇÃO DO SUPABASE — preencha após criar o projeto
@@ -993,21 +996,10 @@ async function persist(k, patch) {
 }
 
 // === USER (ME) ============================================================
-let ME = localStorage.getItem('hunit-piloto-me') || '';
-function showNameModal() {
-  document.getElementById('name-input').value = ME || '';
-  document.getElementById('name-modal').style.display = 'flex';
-  setTimeout(() => document.getElementById('name-input').focus(), 50);
-}
-window.saveName = function() {
-  const v = (document.getElementById('name-input').value || '').trim();
-  if (!v) { alert('Digite um nome.'); return; }
-  ME = v;
-  localStorage.setItem('hunit-piloto-me', ME);
-  document.getElementById('me-name').textContent = ME;
-  document.getElementById('name-modal').style.display = 'none';
-};
-window.changeName = showNameModal;
+// A identidade do usuário (window.ME, showNameModal, saveName, changeName)
+// foi extraída para ./identidade/identidade.js, carregado antes deste script.
+// As referências a `ME` / `showNameModal` abaixo resolvem para os globais
+// definidos lá.
 
 // === HANDLERS ============================================================
 window.onStatusChange = function(k, el) {
