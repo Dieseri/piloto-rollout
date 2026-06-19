@@ -86,6 +86,7 @@
   .stat-card.total .num { color:var(--text); }
   .stat-card.apto .num { color:var(--green); }
   .stat-card.naoapto .num { color:var(--red); }
+  .stat-card.migracao .num { color:var(--orange); }
   .stat-card.pendente .num { color:var(--text2); }
 
   .group-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:24px; }
@@ -215,6 +216,7 @@
   tbody tr:hover { background:var(--surface2); }
   tbody tr.row-apto { background:rgba(34,197,94,0.04); }
   tbody tr.row-naoapto { background:rgba(239,68,68,0.04); opacity:0.75; }
+  tbody tr.row-migracao { background:rgba(249,115,22,0.06); }
   tbody tr.row-flash { animation: flash 1s ease-out; }
   @keyframes flash {
     0% { background:rgba(79,110,247,0.25); }
@@ -257,6 +259,7 @@
   }
   .status-select.s-apto { background:rgba(34,197,94,0.12); color:var(--green); border-color:rgba(34,197,94,0.4); }
   .status-select.s-naoapto { background:rgba(239,68,68,0.1); color:#f87171; border-color:rgba(239,68,68,0.35); }
+  .status-select.s-migracao { background:rgba(249,115,22,0.12); color:var(--orange); border-color:rgba(249,115,22,0.4); }
   .status-select.s-pendente { background:var(--bg); color:var(--text3); }
 
   .comment-cell { position:relative; }
@@ -344,6 +347,7 @@
     <div class="stat-card total"><span class="num" id="total-count">—</span><span class="label">Total de Hotéis</span></div>
     <div class="stat-card apto"><span class="num" id="apto-count">—</span><span class="label">✓ Aptos</span></div>
     <div class="stat-card naoapto"><span class="num" id="naoapto-count">—</span><span class="label">✗ Não aptos</span></div>
+    <div class="stat-card migracao"><span class="num" id="migracao-count">—</span><span class="label">🔄 Em migração</span></div>
     <div class="stat-card pendente"><span class="num" id="pendente-count">—</span><span class="label">— Pendentes</span></div>
   </div>
 
@@ -423,6 +427,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -463,6 +468,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -502,6 +508,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -541,6 +548,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -580,6 +588,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -619,6 +628,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -658,6 +668,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -697,6 +708,7 @@
             <option value="">Todos os status</option>
             <option value="apto">✓ Apto</option>
             <option value="naoapto">✗ Não apto</option>
+            <option value="migracao">🔄 Em migração</option>
             <option value="pendente">— Pendente</option>
           </select>
         </div>
@@ -810,7 +822,7 @@ function formatUpdatedMeta(a) {
 
 function renderRow(d, idx, includeModelo) {
   const a = getAnnot(d);
-  const cls = a.status === 'apto' ? 'row-apto' : a.status === 'naoapto' ? 'row-naoapto' : '';
+  const cls = a.status === 'apto' ? 'row-apto' : a.status === 'naoapto' ? 'row-naoapto' : a.status === 'migracao' ? 'row-migracao' : '';
   const k = annotKey(d);
   const modeloCell = includeModelo
     ? `<td><span class="section-pill ${d.Modelo === 'Plus' ? 'pill-plus' : 'pill-lite'}">${escapeHtml(d.Modelo || '—')}</span></td>` : '';
@@ -831,6 +843,7 @@ function renderRow(d, idx, includeModelo) {
         <option value="pendente" ${a.status==='pendente'?'selected':''}>— Pendente</option>
         <option value="apto" ${a.status==='apto'?'selected':''}>✓ Apto</option>
         <option value="naoapto" ${a.status==='naoapto'?'selected':''}>✗ Não apto</option>
+        <option value="migracao" ${a.status==='migracao'?'selected':''}>🔄 Em migração</option>
       </select>
     </td>
     <td class="comment-cell">
@@ -1022,9 +1035,10 @@ window.onCommentChange = function(k, el) {
 function applyRowUpdate(k, flash) {
   const a = ANNOT[k] || { status:'pendente', comentario:'', updated_by:null, updated_at:null };
   document.querySelectorAll(`tr[data-key="${k}"]`).forEach(tr => {
-    tr.classList.remove('row-apto','row-naoapto');
+    tr.classList.remove('row-apto','row-naoapto','row-migracao');
     if (a.status === 'apto') tr.classList.add('row-apto');
     if (a.status === 'naoapto') tr.classList.add('row-naoapto');
+    if (a.status === 'migracao') tr.classList.add('row-migracao');
     tr.dataset.status = a.status;
     const sel = tr.querySelector('.status-select');
     if (sel) {
@@ -1071,15 +1085,17 @@ function renderAll() {
 }
 
 function refreshSummary() {
-  let apto=0, nao=0, pend=0;
+  let apto=0, nao=0, migr=0, pend=0;
   DATA.forEach(d => {
     const a = getAnnot(d);
     if (a.status === 'apto') apto++;
     else if (a.status === 'naoapto') nao++;
+    else if (a.status === 'migracao') migr++;
     else pend++;
   });
   document.getElementById('apto-count').textContent = apto;
   document.getElementById('naoapto-count').textContent = nao;
+  document.getElementById('migracao-count').textContent = migr;
   document.getElementById('pendente-count').textContent = pend;
 }
 
@@ -1119,7 +1135,7 @@ const EXPORT_HEADERS = [
 ];
 function exportRowFor(d) {
   const a = getAnnot(d);
-  const statusLabel = a.status === 'apto' ? 'Apto' : a.status === 'naoapto' ? 'Não apto' : 'Pendente';
+  const statusLabel = a.status === 'apto' ? 'Apto' : a.status === 'naoapto' ? 'Não apto' : a.status === 'migracao' ? 'Em migração' : 'Pendente';
   return {
     'Tb Property ID': d['Tb Property ID'],
     'Company Name': d['Company Name'],
