@@ -1129,7 +1129,7 @@ window.filterByStatus = function(tableId, status) {
 
 // === EXPORT =============================================================
 const EXPORT_HEADERS = [
-  'Tb Property ID','Company Name','Group','Modelo','Pms','Pms Ativo',
+  'Tb Property ID','Ho ID','Company Name','Group','Modelo','Pms','Pms Ativo',
   'Hoteisnet','Extras Hbook','Hunit ID','TotalReservas','AcessosCartao','AcessosSuperapp',
   'Status Piloto','Comentário','Atualizado por','Atualizado em'
 ];
@@ -1138,6 +1138,7 @@ function exportRowFor(d) {
   const statusLabel = a.status === 'apto' ? 'Apto' : a.status === 'naoapto' ? 'Não apto' : a.status === 'migracao' ? 'Em migração' : 'Pendente';
   return {
     'Tb Property ID': d['Tb Property ID'],
+    'Ho ID': d['Ho ID'] || d.ho_id || '',
     'Company Name': d['Company Name'],
     'Group': (d['Group'] && d['Group']!=='null') ? d['Group'] : '',
     'Modelo': d['Modelo'] || '',
