@@ -376,10 +376,6 @@
       <span class="gnum plus-hits" id="g-plus-hits">—</span>
       <span class="glabel">Plus<br>+ HITS</span>
     </div>
-    <div class="group-card outros" onclick="switchTab('outros')">
-      <span class="gnum outros" id="g-outros">—</span>
-      <span class="glabel">Outros<br>(AppSistemas)</span>
-    </div>
   </div>
 
   <div class="tabs-wrapper">
@@ -403,9 +399,6 @@
     </button>
     <button class="tab-btn" data-tab="plus-hits" onclick="switchTab('plus-hits')">
       <span class="dot" style="background:var(--hits-color)"></span> Plus • HITS <span class="count" id="c-plus-hits">0</span>
-    </button>
-    <button class="tab-btn" data-tab="outros" onclick="switchTab('outros')">
-      <span class="dot" style="background:var(--outros-color)"></span> Outros <span class="count" id="c-outros">0</span>
     </button>
   </div>
 
@@ -686,45 +679,6 @@
     </div>
   </div>
 
-  <div id="tab-outros" class="tab-pane">
-    <div class="section">
-      <div class="section-header">
-        <div class="section-header-left">
-          <span class="section-pill pill-outros">Outros</span>
-          <span class="section-pill pill-amp">×</span>
-          <span class="section-pill pill-outros">AppSistemas</span>
-          <div>
-            <div class="section-title">Outros — AppSistemas</div>
-            <div class="section-desc">Filtro composto: <strong>Modelo Outros</strong> + <strong>PMS AppSistemas</strong></div>
-          </div>
-        </div>
-        <span class="section-count" id="count-outros-label"></span>
-      </div>
-      <div class="context-box outros">Hotéis com PMS <strong>AppSistemas</strong> — fora dos lotes principais (Sem PMS / Desbravador / HITS). Avaliar caso a caso.</div>
-      <div class="export-bar">
-        <div class="filter-group">
-          <input type="text" class="search-input" placeholder="🔍 Buscar..." oninput="filterTable('table-outros', this.value)" />
-          <select class="status-filter" onchange="filterByStatus('table-outros', this.value)">
-            <option value="">Todos os status</option>
-            <option value="apto">✓ Apto</option>
-            <option value="naoapto">✗ Não apto</option>
-            <option value="migracao">🔄 Em migração</option>
-            <option value="pendente">— Pendente</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn-export csv" onclick="exportCSV('outros')">⬇ CSV</button>
-          <button class="btn-export xlsx" onclick="exportXLSX('outros')">⬇ XLSX</button>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table id="table-outros"><thead><tr>
-          <th>#</th><th>Hotel</th><th>PMS</th>
-          <th>Reservas <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Cartão <span title="Dados dos últimos 60 dias" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Superapp <span title="Total de acessos SuperApp (mar–mai/2026)" style="cursor:help;opacity:0.55;font-size:11px">👁</span></th><th>Status</th><th style="min-width:260px">Comentário</th>
-        </tr></thead><tbody id="tbody-outros"></tbody></table>
-      </div>
-    </div>
-  </div>
 
 </main>
 
